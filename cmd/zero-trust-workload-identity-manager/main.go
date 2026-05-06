@@ -17,12 +17,14 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
 	"os"
 	"path/filepath"
 
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	operatorv1 "github.com/operator-framework/api/pkg/operators/v1"
 
@@ -50,6 +52,7 @@ import (
 	ztwimController "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/zero-trust-workload-identity-manager"
 
 	securityv1 "github.com/openshift/api/security/v1"
+	utiltls "github.com/openshift/controller-runtime-common/pkg/tls"
 
 	ctrlmgr "github.com/spiffe/spire-controller-manager/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -74,7 +77,6 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(operatoropenshiftiov1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -203,6 +205,10 @@ func main() {
 		exitOnError(err, "unable to add routev1 scheme")
 	}
 
+	if err := configv1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add configv1 scheme")
+	}
+
 	// Add OperatorCondition scheme for OLM integration
 	if err := operatorv1.AddToScheme(scheme); err != nil {
 		exitOnError(err, "unable to add operatorv1 scheme")
@@ -233,6 +239,40 @@ func main() {
 		// LeaderElectionReleaseOnCancel: true,
 	})
 	exitOnError(err, "unable to start manager")
+
+	// Fetch the TLS profile from the APIServer resource.
+	tlsSecurityProfileSpec, err := utiltls.FetchAPIServerTLSProfile(context.Background(), mgr.GetClient())
+	if err != nil {
+		exitOnError(err, "unable to get TLS profile from API server")
+	}
+
+	// Create the TLS configuration function for the server endpoints.
+	tlsConfig, unsupportedCiphers := utiltls.NewTLSConfigFromProfile(tlsSecurityProfileSpec)
+	if len(unsupportedCiphers) > 0 {
+		setupLog.Info("TLS configuration contains unsupported ciphers that will be ignored", "unsupportedCiphers", unsupportedCiphers)
+	}
+
+	// Create a context that can be cancelled when there is a need to shut down the manager	.
+	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
+	// Ensure the context is cancelled when the program exits.
+	defer cancel()
+
+	// Set up the TLS security profile watcher controller.
+	// This will trigger a graceful shutdown when the TLS profile changes.
+	if err := (&utiltls.SecurityProfileWatcher{
+		Client:                mgr.GetClient(),
+		InitialTLSProfileSpec: tlsSecurityProfileSpec,
+		OnProfileChange: func(ctx context.Context, oldTLSProfileSpec, newTLSProfileSpec configv1.TLSProfileSpec) {
+			setupLog.Info("TLS profile has changed, initiating a shutdown to reload it", "old profile", oldTLSProfileSpec, "new profile", newTLSProfileSpec)
+			cancel()
+		},
+		OnAdherencePolicyChange: func(ctx context.Context, oldTLSAdherencePolicy, newTLSAdherencePolicy configv1.TLSAdherencePolicy) {
+			setupLog.Info("TLS adherence policy has changed, initiating a shutdown to reload it", "old policy", oldTLSAdherencePolicy, "new policy", newTLSAdherencePolicy)
+			cancel()
+		},
+	}).SetupWithManager(mgr); err != nil {
+		exitOnError(err, "unable to create TLS security profile watcher controller")
+	}
 
 	ztwimControllerManager, err := ztwimController.New(mgr)
 	exitOnError(err, "unable to set up ztwim controller manager")
@@ -280,7 +320,7 @@ func main() {
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
-	err = mgr.Start(ctrl.SetupSignalHandler())
+	err = mgr.Start(ctx)
 	exitOnError(err, "problem running manager")
 }
 
