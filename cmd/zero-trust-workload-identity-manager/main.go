@@ -53,7 +53,7 @@ import (
 
 	securityv1 "github.com/openshift/api/security/v1"
 	utiltls "github.com/openshift/controller-runtime-common/pkg/tls"
-
+	centralTLS "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	ctrlmgr "github.com/spiffe/spire-controller-manager/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -205,14 +205,21 @@ func main() {
 		exitOnError(err, "unable to add routev1 scheme")
 	}
 
-	if err := configv1.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add configv1 scheme")
-	}
-
 	// Add OperatorCondition scheme for OLM integration
 	if err := operatorv1.AddToScheme(scheme); err != nil {
 		exitOnError(err, "unable to add operatorv1 scheme")
 	}
+
+	// Add configv1 scheme for tls profile watcher
+	if err := configv1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add configv1 scheme")
+	}
+
+	tlsConfigResult, err := centralTLS.ResolveTLSConfig(context.Background(), config, scheme)
+	exitOnError(err, "unable to resolve TLS configuration")
+
+	metricsTLSOpts = append(metricsTLSOpts, tlsConfigResult.TLSConfig)
+	webhookTLSOpts = append(webhookTLSOpts, tlsConfigResult.TLSConfig)
 
 	// Create unified cache builder to prevent race conditions between manager and reconciler caches
 	cacheBuilder, err := customClient.NewCacheBuilder()
@@ -238,19 +245,7 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	})
-	exitOnError(err, "unable to start manager")
-
-	// Fetch the TLS profile from the APIServer resource.
-	tlsSecurityProfileSpec, err := utiltls.FetchAPIServerTLSProfile(context.Background(), mgr.GetClient())
-	if err != nil {
-		exitOnError(err, "unable to get TLS profile from API server")
-	}
-
-	// Create the TLS configuration function for the server endpoints.
-	tlsConfig, unsupportedCiphers := utiltls.NewTLSConfigFromProfile(tlsSecurityProfileSpec)
-	if len(unsupportedCiphers) > 0 {
-		setupLog.Info("TLS configuration contains unsupported ciphers that will be ignored", "unsupportedCiphers", unsupportedCiphers)
-	}
+	exitOnError(err, "unable to create manager")
 
 	// Create a context that can be cancelled when there is a need to shut down the manager	.
 	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
@@ -260,14 +255,15 @@ func main() {
 	// Set up the TLS security profile watcher controller.
 	// This will trigger a graceful shutdown when the TLS profile changes.
 	if err := (&utiltls.SecurityProfileWatcher{
-		Client:                mgr.GetClient(),
-		InitialTLSProfileSpec: tlsSecurityProfileSpec,
-		OnProfileChange: func(ctx context.Context, oldTLSProfileSpec, newTLSProfileSpec configv1.TLSProfileSpec) {
-			setupLog.Info("TLS profile has changed, initiating a shutdown to reload it", "old profile", oldTLSProfileSpec, "new profile", newTLSProfileSpec)
+		Client:                    mgr.GetClient(),
+		InitialTLSProfileSpec:     tlsConfigResult.TLSProfileSpec,
+		InitialTLSAdherencePolicy: tlsConfigResult.TLSAdherencePolicy,
+		OnProfileChange: func(_ context.Context, oldTLSProfileSpec, newTLSProfileSpec configv1.TLSProfileSpec) {
+			setupLog.Info("TLS profile has changed, initiating a shutdown to reload it", "oldProfile", oldTLSProfileSpec, "newProfile", newTLSProfileSpec)
 			cancel()
 		},
-		OnAdherencePolicyChange: func(ctx context.Context, oldTLSAdherencePolicy, newTLSAdherencePolicy configv1.TLSAdherencePolicy) {
-			setupLog.Info("TLS adherence policy has changed, initiating a shutdown to reload it", "old policy", oldTLSAdherencePolicy, "new policy", newTLSAdherencePolicy)
+		OnAdherencePolicyChange: func(_ context.Context, oldPol, newPol configv1.TLSAdherencePolicy) {
+			setupLog.Info("TLS adherence policy has changed, initiating a shutdown to reload it", "oldPolicy", oldPol, "newPolicy", newPol)
 			cancel()
 		},
 	}).SetupWithManager(mgr); err != nil {

@@ -749,7 +749,7 @@ github.com/onsi/gomega/types
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/openshift/api v0.0.0-20260406193844-f50e695cb194
+# github.com/openshift/api v0.0.0-20260429122012-1180c0f5c3e9
 ## explicit; go 1.25.0
 github.com/openshift/api/config/v1
 github.com/openshift/api/config/v1alpha1
@@ -766,7 +766,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20260330134249-7e1499aaacd7
+# github.com/openshift/client-go v0.0.0-20260429123927-c81f86abfa6a
 ## explicit; go 1.25.0
 github.com/openshift/client-go/config/applyconfigurations/config/v1
 github.com/openshift/client-go/config/applyconfigurations/internal
@@ -775,8 +775,8 @@ github.com/openshift/client-go/config/clientset/versioned/typed/config/v1
 # github.com/openshift/controller-runtime-common v0.0.0-20260428152732-64ee174f5e2e
 ## explicit; go 1.25.0
 github.com/openshift/controller-runtime-common/pkg/tls
-# github.com/openshift/library-go v0.0.0-20260213153706-03f1709971c5
-## explicit; go 1.24.0
+# github.com/openshift/library-go v0.0.0-20260507161214-6769d5fe19ec
+## explicit; go 1.25.0
 github.com/openshift/library-go/pkg/crypto
 # github.com/operator-framework/api v0.27.0
 ## explicit; go 1.22.0

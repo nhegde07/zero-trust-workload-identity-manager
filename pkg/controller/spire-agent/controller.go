@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	configv1 "github.com/openshift/api/config/v1"
 	securityv1 "github.com/openshift/api/security/v1"
 	customClient "github.com/openshift/zero-trust-workload-identity-manager/pkg/client"
 	appsv1 "k8s.io/api/apps/v1"
@@ -78,6 +79,16 @@ func (r *SpireAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	//fetch tls config from cache as well
+	var tlsConfig configv1.APIServer
+	if err := r.ctrlClient.Get(ctx, types.NamespacedName{Name: "cluster"}, &tlsConfig); err != nil {
+		if kerrors.IsNotFound(err) {
+			r.log.Error(err, "failed to get APIServer")
+			return nil, fmt.Errorf("failed to get APIServer: %w", err)
+		}
+		return &tlsConfig, nil
 	}
 
 	// Set Ready to false at the start of reconciliation
