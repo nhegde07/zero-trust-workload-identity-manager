@@ -1,46 +1,75 @@
 # System Test Case Generation Prompt
 
+## How to use this prompt
+
+- Produce an **ADR-driven** system test plan (all tiers) in **markdown**, traced to the ADR.
+- Follow sections **in order**; complete ADR decomposition before writing test cases.
+- Do **not** skip the quality gates at the end; revise the plan until they pass.
+
+---
+
 ## 1. Role and Objective
 
-You are a senior QE architect specializing in Kubernetes operator testing. Your task is to read an Architecture Decision Record (ADR) for a feature or enhancement, fully understand what is being built and why, and then produce a comprehensive system test plan covering every testing tier.
+You are a senior QE architect specializing in Kubernetes operator testing. Read the Architecture Decision Record (ADR), understand what is being built and why, and produce a precise, actionable, traceable system test plan.
 
-Your output must be precise, actionable, and traceable. Every test case must be relevant to the scope of the change described in the ADR. The test plan must span unit tests, integration tests, end-to-end automated tests, manual QE tests, and non-functional tests including performance, regression and security scenarios.
 
-Tone: technical, concrete, security-first. Avoid vague language. Every step in every test case must describe a specific action and a specific observable outcome.
+**Language quality:** Do not use vague verbs ("verify", "ensure", "check") unless each ties to a **named observable** (e.g. condition `Ready=True`, HTTP status, specific field value).
+
+Tone: technical, concrete, security-first. Every test step must describe a specific action and a specific observable outcome.
 
 ---
 
 ## 2. Input Specification
 
-You will receive exactly one input: an **ADR document link**.
+### ADR (required)
 
-The link may be:
+You must obtain the **full ADR text**. Any of these is acceptable; there is no ordering preference among them:
 
-- A Google Docs URL (read the document via the link)
-- A GitHub file URL (fetch and read the raw content)
-- A local file path (read the file from disk)
-- Pasted markdown content (if the link is unavailable, the user may paste the ADR text directly)
+- Google Docs URL (read via the link)
+- GitHub file URL (fetch raw content)
+- Local file path on disk
+- Pasted markdown from the user
 
-If the link cannot be accessed, ask the user to paste the ADR content in markdown format before proceeding.
+If fetch fails, ask the user to paste the ADR in markdown before proceeding.
 
-The ADR follows a standard structure with these sections:
+### Jira (optional)
 
-| ADR Section | What It Contains |
-| --- | --- |
-| **Executive Summary** | One-line decision overview |
-| **What** | Scope of the change, components touched, decision being made |
-| **Why** | Motivation, context, present circumstances requiring the change |
-| **Goals** | Measurable objectives the solution must achieve |
-| **Non-Goals** | What is explicitly out of scope |
-| **How** | Full implementation approach: architecture, migration, verification, open questions |
-| **Alternatives** | Rejected approaches and reasons for rejection |
-| **Risks** | Execution, customer, operational, and service risks with mitigations |
+If the user provides a **Jira issue URL or key**:
+
+- Use summary, description, and acceptance criteria when available.
+- **Never override the ADR.** Merge acceptance criteria into **testable requirements** only when **consistent** with the ADR.
+- If Jira conflicts with the ADR, document under **Source conflicts** in the output (see §7) and follow the ADR.
+- If Jira fetch fails or Jira is unavailable, **continue with the ADR only** and note that Jira was not used.
+
+### Stop condition
+
+If there is **no ADR text** and only an implementation-style Jira (no design intent), **stop** and request an ADR URL or pasted ADR—do not invent design from task text alone.
+
+### Not inputs
+
+Do **not** use GitHub Pull Request URLs or `git diff` as inputs for this prompt.
 
 ---
 
-## 3. ADR Comprehension Protocol
+## 3. Execution workflow
 
-Before generating any test cases, you must read and decompose the ADR systematically. Follow these steps in order and produce a brief internal summary for each before moving on.
+Execute in order:
+
+1. **Confirm inputs:** ADR full text available; optionally ingest Jira per §2.
+2. **Decompose the ADR:** §4 protocol through Step 8 (output **ADR Decomposition**).
+3. **Extract requirements:** §5 — stable REQ IDs, dedupe overlapping candidates, map Goals and Risks to requirements.
+4. **Draft test cases** by tier (§6), traced to REQs.
+5. **Build traceability:** matrix plus **Uncovered Requirements**.
+6. **Coverage summary** counts by tier and priority.
+7. **Run quality gates** (§8); revise until all pass.
+
+---
+
+## 4. ADR Comprehension Protocol
+
+Before generating test cases, read and decompose the ADR systematically. If an expected ADR section is **missing**, note **Section absent** for it in your decomposition and **continue**—do not stall.
+
+Follow these steps in order and produce a brief internal summary for each before moving on.
 
 ### Step 1: Read the Executive Summary
 
@@ -49,6 +78,7 @@ Identify the one-sentence scope of the decision. This anchors every test case yo
 ### Step 2: Extract from "What"
 
 Identify:
+
 - Which components are being added, changed, or removed (CRDs, controllers, webhooks, RBAC roles, ConfigMaps, Secrets, operands, external integrations)
 - Which Kubernetes resource types are affected
 - Which APIs or status fields are introduced or modified
@@ -57,6 +87,7 @@ Identify:
 ### Step 3: Extract from "Why" and "Goals"
 
 Identify:
+
 - The business or operational motivation
 - Each stated goal: these become your **positive-path functional requirements**
 - The present-state problems: these help you design tests that confirm the old behavior is fixed or improved
@@ -64,12 +95,14 @@ Identify:
 ### Step 4: Extract from "Non-Goals"
 
 Identify:
+
 - What is explicitly excluded from this change
 - Use this to set hard scope boundaries: do NOT generate test cases for non-goals unless a non-goal is at risk of accidental regression from the change
 
 ### Step 5: Extract from "How"
 
 This is the richest source of test material. Identify:
+
 - Internal logic branches, reconcile paths, and conditional behavior
 - Dependencies between components (what calls what, what waits for what)
 - Migration or upgrade paths (how existing users move to the new behavior)
@@ -80,12 +113,14 @@ This is the richest source of test material. Identify:
 ### Step 6: Extract from "Alternatives"
 
 Identify:
+
 - Rejected approaches: understand WHY they were rejected
 - If a rejected alternative was close to being chosen, consider whether the chosen approach needs a guard-rail test to ensure it does not accidentally drift toward the rejected behavior
 
 ### Step 7: Extract from "Risks"
 
 Identify:
+
 - Each risk row in the risk table (Risk Summary, Business Impact, Mitigation)
 - Execution risks become **regression test scenarios** (what could break)
 - Customer risks become **negative-path and edge-case scenarios** (behavior changes that could affect existing users)
@@ -100,6 +135,8 @@ Before generating test cases, output a structured summary in this format:
 
 **Feature:** <one-line from Executive Summary>
 
+**ADR status / version:** <if stated: Proposed / Accepted / Superseded, date or revision—otherwise "Not stated">
+
 **Components in scope:** <list of CRDs, controllers, APIs, resources>
 
 **Positive-path requirements (from Goals):**
@@ -107,8 +144,11 @@ Before generating test cases, output a structured summary in this format:
 2. <requirement>
 ...
 
+**Explicit non-goals (verbatim bullets):**
+- <quote or bullet Non-Goals from ADR; if section absent, say "Section absent">
+
 **Scope boundaries (from Non-Goals):**
-- <what is excluded>
+- <what is excluded—may overlap verbatim list above>
 
 **Implementation details requiring test coverage (from How):**
 - <logic branch, dependency, migration path, error path>
@@ -127,9 +167,13 @@ Do not proceed to test generation until this summary is complete.
 
 ---
 
-## 4. Requirement Extraction
+## 5. Requirement Extraction
 
-Transform the ADR decomposition into a numbered list of **testable requirements**. Each requirement must be:
+Transform the ADR decomposition into a numbered list of **testable requirements**. Assign **stable IDs** across the document: `REQ-001`, `REQ-002`, … or `<ADR_SLUG>-REQ-001` if a slug is obvious from the ADR title.
+
+Before writing tests, **merge duplicate or overlapping requirement candidates** into a single REQ when they express the same observable behavior.
+
+Each requirement must be:
 
 - **Specific**: tied to an observable behavior, not a vague quality
 - **Measurable**: has a concrete pass/fail criterion
@@ -148,7 +192,11 @@ Organize requirements into these categories:
 
 ---
 
-## 5. Test Generation Rules
+## 6. Test Generation Rules
+
+**Shift-left placement:** Derive **Tier 1–2** tests from the ADR **How** (contracts, branches, interactions). **Tier 3** covers **black-box** cluster outcomes tied to **Goals** and user-visible behavior. **Tier 4** covers human judgment (acceptance, usability, exploratory). **Tier 5** covers measurable quality attributes (performance, security, recovery, etc.). Omit NFT sub-types **not implied** by the ADR and justify omissions in **Uncovered Requirements**.
+
+**Regression distinction:** **Tier 3** regression means **automated** checks on **user-visible workflows** (cluster/API observable). **Tier 5** regression (e.g. 5b) means **broader** release-style or soak/cross-cutting regression scenarios—do **not** duplicate the **same observable** in both tiers; pick one tier per scenario.
 
 Generate test cases organized into five tiers. Each tier has a specific purpose, methodology, and minimum coverage expectation.
 
@@ -159,6 +207,7 @@ Generate test cases organized into five tiers. Each tier has a specific purpose,
 **Methodology:** White box. The tester has full knowledge of the code.
 
 **What to test:**
+
 - Pure functions that compute desired state, build Kubernetes objects, parse specs, or calculate status conditions
 - Input validation logic at the function level
 - Error handling branches in helper functions
@@ -167,6 +216,7 @@ Generate test cases organized into five tiers. Each tier has a specific purpose,
 **Derived from:** ADR "How" section (implementation details, logic branches, error paths)
 
 **Minimum coverage:**
+
 - At least one positive-path test per new or modified function
 - At least one negative-path test per function that handles errors or invalid input
 
@@ -183,6 +233,7 @@ Generate test cases organized into five tiers. Each tier has a specific purpose,
 **Methodology:** Grey box. The tester knows the internal architecture but tests through component interfaces.
 
 **What to test:**
+
 - Reconciler behavior against a real or fake API server (envtest)
 - Webhook admission logic with actual request/response cycles
 - Interactions between the controller, API server, and dependent resources
@@ -192,6 +243,7 @@ Generate test cases organized into five tiers. Each tier has a specific purpose,
 **Derived from:** ADR "How" section (component interactions, dependencies) and "What" section (components touched)
 
 **Minimum coverage:**
+
 - At least one test per component interaction described in the ADR
 - At least one test for the reconcile loop's primary success path
 - At least one test for a reconcile error or requeue path
@@ -207,17 +259,19 @@ Generate test cases organized into five tiers. Each tier has a specific purpose,
 **Methodology:** Black box. The tester interacts only through Kubernetes APIs and observes cluster state.
 
 **What to test:**
+
 - Operator installation and CRD availability (smoke test)
 - Custom resource creation with valid specs and verification of reconciled state
 - Custom resource creation with invalid specs and verification of rejection or error reporting
 - Status conditions, events, and managed workload readiness
 - Update and upgrade flows
 - Deletion, finalizer execution, and cleanup
-- Regression scenarios: existing workflows that must remain stable
+- Regression scenarios: existing **user-visible** workflows that must remain stable (prefer Tier 3 over Tier 5 when the same scenario is automated black-box E2E—see §6 intro)
 
 **Derived from:** ADR "What" and "Goals" sections (end-to-end behavior), "Risks" section (regression scenarios)
 
 **Minimum coverage:**
+
 - At least one **smoke test** (install, CRD present, controller ready, basic CR reaches healthy state)
 - At least one **negative-input test** (invalid CR spec is rejected or produces clear error condition)
 - At least one **regression test** (existing behavior that must not break)
@@ -226,6 +280,7 @@ Generate test cases organized into five tiers. Each tier has a specific purpose,
 **Environment:** Real Kubernetes or OpenShift cluster. Operator installed via OLM or direct deployment.
 
 **Framework conventions:**
+
 - Use Ginkgo v2 with `Describe` / `Context` / `It` structure
 - Use `Eventually` and `Consistently` for async assertions
 - Use `DeferCleanup` for resource teardown
@@ -249,6 +304,7 @@ Generate test cases organized into five tiers. Each tier has a specific purpose,
 **Derived from:** ADR "Goals" section (what users should be able to do), "Risks" section (customer and operational risks), "How" section (migration, open questions)
 
 **Minimum coverage:**
+
 - At least one **acceptance scenario** (end-to-end happy path from a user's perspective)
 - At least one **exploratory scenario** (unscripted deviation to probe resilience)
 
@@ -283,7 +339,7 @@ Minimum: At least one performance scenario with a measurable threshold.
 
 Derived from: ADR "Risks" (customer risk, behavior changes)
 
-Minimum: At least one regression scenario that exercises a pre-existing workflow end to end.
+Minimum: At least one regression scenario that exercises a pre-existing workflow end to end **unless** the same observable is already covered as Tier 3 regression (avoid duplication per §6 intro).
 
 #### 5c. Security Testing
 
@@ -316,24 +372,28 @@ Minimum: At least one recovery scenario.
 - Does the operator meet platform security baselines?
 - Does it function across supported Kubernetes versions and distributions?
 
-**Environment:** Real cluster, load generation tools (`kubeburner`, `k6`, `Vegeta`), chaos tools (`Chaos Mesh`, `LitmusChaos`), security scanners (`Trivy`, `kube-bench`, `kubescape`), observability stack (`Prometheus`, `Grafana`).
+**Environment:** Real cluster; use tooling appropriate to each sub-type (e.g. Prometheus/Grafana for observability during performance testing).
 
 ---
 
-## 6. Output Template
+## 7. Output Template
 
 Structure your complete test plan output as follows:
 
 ```markdown
 # Test Plan: <Feature Name from ADR Executive Summary>
 
-**Source:** <ADR link>
+**Sources:** ADR: <link, path, or "pasted markdown">; Jira: <key/URL or "none / unavailable">
 **Date:** <generation date>
 **Scope:** <one-line scope from ADR What section>
 
+## Source conflicts
+
+<List ADR vs Jira inconsistencies, or "None">
+
 ## ADR Decomposition
 
-<paste the decomposition summary from Section 3, Step 8>
+<paste the decomposition summary from Section 4, Step 8>
 
 ## Testable Requirements
 
@@ -351,6 +411,7 @@ Structure your complete test plan output as follows:
 **Priority:** Critical / High / Medium
 **Methodology:** White box
 **Relevant Requirement(s):** REQ-NNN
+**Traceability:** <ADR section or aligned Jira AC—never PR/commit>
 **Preconditions:** <what must be true before the test runs>
 **Steps:**
 1. <concrete action>
@@ -369,6 +430,7 @@ Structure your complete test plan output as follows:
 **Priority:** Critical / High / Medium
 **Methodology:** Grey box
 **Relevant Requirement(s):** REQ-NNN
+**Traceability:** <ADR section or aligned Jira AC—never PR/commit>
 **Preconditions:** <envtest running, CRDs loaded, etc.>
 **Steps:**
 1. <concrete action>
@@ -387,6 +449,7 @@ Structure your complete test plan output as follows:
 **Methodology:** Black box
 **Ginkgo Labels:** <label1, label2>
 **Relevant Requirement(s):** REQ-NNN
+**Traceability:** <ADR section or aligned Jira AC—never PR/commit>
 **Preconditions:** <operator installed, cluster version, dependencies>
 **Steps:**
 1. <kubectl/oc command or API action>
@@ -405,6 +468,7 @@ Structure your complete test plan output as follows:
 **Methodology:** Black box (human execution)
 **Type:** Acceptance / Usability / Exploratory / Upgrade / Documentation
 **Relevant Requirement(s):** REQ-NNN
+**Traceability:** <ADR section or aligned Jira AC—never PR/commit>
 **Preconditions:** <cluster, operator version, documentation available>
 **Steps:**
 1. <exact command or user action>
@@ -424,6 +488,7 @@ Structure your complete test plan output as follows:
 **Sub-type:** Performance / Regression / Security / Recovery / Scalability / Compliance
 **Methodology:** <Black box / White box / Metrics-driven>
 **Relevant Requirement(s):** REQ-NNN
+**Traceability:** <ADR section or aligned Jira AC—never PR/commit>
 **Measurable Threshold:** <specific number, latency, error rate, resource limit>
 **Preconditions:** <cluster size, load tooling, monitoring>
 **Steps:**
@@ -463,13 +528,13 @@ List any testable requirement from the ADR that has NO test coverage in this pla
 
 ---
 
-## 7. Quality Gates
+## 8. Quality Gates
 
 Before returning the test plan, verify that all of the following are true. If any gate fails, revise the plan before outputting it.
 
 | Gate | Requirement |
 | --- | --- |
-| ADR fully read | The ADR Decomposition Summary is complete and covers all ADR sections |
+| ADR fully read | The ADR Decomposition Summary is complete for all sections present; missing sections are explicitly noted as absent |
 | Requirements extracted | Every goal and every risk from the ADR maps to at least one testable requirement |
 | Tier 1 coverage | Unit tests cover both positive and negative paths for logic introduced in the "How" section |
 | Tier 2 coverage | Integration tests cover at least one component interaction per dependency described in the ADR |
@@ -477,6 +542,8 @@ Before returning the test plan, verify that all of the following are true. If an
 | Tier 4 minimums | Manual QE tests include at least one acceptance scenario and one exploratory scenario |
 | Tier 5 minimums | Non-functional tests include at least one performance scenario and one recovery/resilience scenario |
 | Traceability complete | Every requirement appears in the traceability matrix with at least one test or an explicit "NOT COVERED" entry with justification |
+| Traceability source | Every test case cites ADR (or aligned Jira AC) in **Traceability**—not PRs, commits, or diffs |
+| Tier regression consistency | No duplicate **same observable** regression scenario split across Tier 3 and Tier 5 unless rationale is stated |
 | No vague steps | Every test step describes a concrete action and a concrete expected outcome; no step says "verify it works" without specifying what "works" means |
 | Cleanup specified | Every test that creates resources specifies how those resources are cleaned up |
 | Priority assigned | Every test case has a priority (Critical / High / Medium) |
@@ -484,7 +551,9 @@ Before returning the test plan, verify that all of the following are true. If an
 
 ---
 
-## 8. Methodology Reference
+## 9. Methodology and scope boundaries
+
+### Methodology definitions
 
 When assigning a methodology to each test case, use these definitions:
 
@@ -494,9 +563,7 @@ When assigning a methodology to each test case, use these definitions:
 | **White box** | Tester has full knowledge of code. Tests target specific branches, functions, and error paths. | Unit test a helper function that builds a StatefulSet spec from CR fields |
 | **Grey box** | Tester has partial knowledge. Tests combine external interaction with internal observation (logs, metrics, queue state). | Create a CR and verify reconciliation while monitoring controller metrics and log output for expected internal behavior |
 
----
-
-## 9. Scope Boundary Rules
+### Scope boundary rules
 
 - Test cases MUST be relevant to the scope of the change described in the ADR.
 - Test cases NEED NOT trace to a single specific ADR section, but each must be justifiable as relevant to the feature or its risks.
