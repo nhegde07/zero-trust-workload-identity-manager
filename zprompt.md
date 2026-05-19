@@ -36,10 +36,37 @@ If fetch fails, ask the user to paste the ADR in markdown before proceeding.
 
 If the user provides a **Jira issue URL or key**:
 
-- Use summary, description, and acceptance criteria when available.
-- **Never override the ADR.** Merge acceptance criteria into **testable requirements** only when **consistent** with the ADR.
+- **You MUST attempt to fetch** issue details via the REST API as described below. **Do not skip** this fetch.
+- Use summary, description, and acceptance criteria from the response when available.
+- **Never override the ADR.** Merge Jira text into **testable requirements** only when **consistent** with the ADR.
 - If Jira conflicts with the ADR, document under **Source conflicts** in the output (see §7) and follow the ADR.
-- If Jira fetch fails or Jira is unavailable, **continue with the ADR only** and note that Jira was not used.
+- If **`JIRA_EMAIL`** or **`JIRA_TOKEN`** is unset, **stop** and ask the user to set them (and **`JIRA_URL`** if not the default) so the mandatory fetch can run—do not silently omit the attempt.
+- If fetch was **attempted** but HTTP returns **401** / **403** / **404** (or network failure), report the error, **continue with the ADR only**, and state that Jira fetch failed after the attempt.
+
+#### How to fetch Jira issue details
+
+**When a Jira URL or issue key is part of the input, running this fetch is mandatory** (after credentials are available).
+
+**Prerequisites**
+
+- **`JIRA_EMAIL`** — Atlassian account email (used as the HTTP basic-auth username).
+- **`JIRA_TOKEN`** — Jira **API token** (used as the HTTP basic-auth password). Atlassian Cloud does **not** use Bearer tokens for this flow; authorization is **HTTP Basic** with the form **`${JIRA_EMAIL}:${JIRA_TOKEN}`**.
+- **`JIRA_URL`** — Site base URL, **required** when it is not the default. Example:
+  Default if unset: **`https://issues.redhat.com`**. For links under `*.atlassian.net`, set **`JIRA_URL`** accordingly before calling the API.
+
+**Steps**
+
+1. **Resolve the issue key:** If input looks like a URL (e.g. `https://redhat.atlassian.net/browse/SPIRE-129`), extract the key (`SPIRE-129`). Otherwise treat input as the key.
+2. **GET the issue (Jira REST API v2):** Request at least `summary`, `description`, `status`, `issuetype`, `labels`, `components`. Acceptance criteria often live in `description`, in comments, or in **project-specific custom fields**—add field IDs only if the user or workspace documents them.
+
+```bash
+curl -sS --user "${JIRA_EMAIL}:${JIRA_TOKEN}" \
+     -H "Accept: application/json" \
+     "${JIRA_URL:-https://issues.redhat.com}/rest/api/2/issue/${ISSUE_KEY}?fields=summary,description,status,issuetype,labels,components"
+```
+
+3. **Errors:** On **401** / **403** / **404**, report a clear error (bad key, permissions, or credentials). After a **real attempt**, you may **continue with the ADR only** and document Jira fetch failure in **Sources** / narrative—never claim Jira was fetched if no attempt was made.
+4. **Parse:** From JSON, use `fields.summary`, `fields.description` (strip wiki markup as plain text), `fields.components`, `fields.labels`, `fields.status` for context. Map any acceptance criteria you find into requirements only when aligned with the ADR.
 
 ### Stop condition
 
@@ -55,7 +82,7 @@ Do **not** use GitHub Pull Request URLs or `git diff` as inputs for this prompt.
 
 Execute in order:
 
-1. **Confirm inputs:** ADR full text available; optionally ingest Jira per §2.
+1. **Confirm inputs:** ADR full text available; if the user supplied a Jira URL or key, **attempt Jira fetch per §2** before drafting requirements (mandatory when Jira is provided).
 2. **Decompose the ADR:** §4 protocol through Step 8 (output **ADR Decomposition**).
 3. **Extract requirements:** §5 — stable REQ IDs, dedupe overlapping candidates, map Goals and Risks to requirements.
 4. **Draft test cases** by tier (§6), traced to REQs.
