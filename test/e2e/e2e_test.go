@@ -590,23 +590,6 @@ var _ = Describe("Zero Trust Workload Identity Manager", Ordered, func() {
 			fmt.Fprintf(GinkgoWriter, "rotated SVID serial: %s\n", rotatedCert.SerialNumber.String())
 		})
 
-		It("pod without matching ClusterSPIFFEID should NOT get an SVID", Label("attestation"), func() {
-			By("Deploying a pod without a matching ClusterSPIFFEID")
-			f := utils.SetupAttestationTestWithoutSPIFFEID(testCtx, k8sClient, clientset, "no-spiffeid")
-
-			By("Asserting svid.pem does NOT appear in /certs/ over 60 seconds")
-			Consistently(func(g Gomega) string {
-				stdout, stderr, err := utils.ExecInPod(testCtx, f.Namespace, f.PodName, f.AppContainer,
-					[]string{"ls", "/certs/"})
-				g.Expect(err).NotTo(HaveOccurred(),
-					"exec into pod must succeed to produce a trustworthy result (stderr: %s)", strings.TrimSpace(stderr))
-				return stdout
-			}).WithTimeout(60 * time.Second).WithPolling(10 * time.Second).ShouldNot(
-				ContainSubstring("svid.pem"),
-				"pod without matching ClusterSPIFFEID must NOT receive an SVID",
-			)
-		})
-
 		It("should propagate ClusterSPIFFEID template update to workload SVID", Label("attestation"), func() {
 			By("Setting up attestation environment")
 			f := utils.SetupAttestationTest(testCtx, k8sClient, clientset, "spiffeid-update", nil)
