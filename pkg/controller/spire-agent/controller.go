@@ -31,6 +31,7 @@ import (
 
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	centralTLS "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 )
 
@@ -86,9 +87,13 @@ func (r *SpireAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.ctrlClient.Get(ctx, types.NamespacedName{Name: "cluster"}, &tlsConfig); err != nil {
 		if kerrors.IsNotFound(err) {
 			r.log.Error(err, "failed to get APIServer")
-			return nil, fmt.Errorf("failed to get APIServer: %w", err)
+			return ctrl.Result{}, fmt.Errorf("failed to get APIServer: %w", err)
 		}
-		return &tlsConfig, nil
+		return ctrl.Result{}, fmt.Errorf("failed to get APIServer: %w", err)
+	}
+	result, err := centralTLS.ResolveTLSConfig(ctx, r.ctrlClient, r.scheme)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to resolve TLS config: %w", err)
 	}
 
 	// Set Ready to false at the start of reconciliation
