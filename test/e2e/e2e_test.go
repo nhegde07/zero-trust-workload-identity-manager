@@ -577,7 +577,7 @@ var _ = Describe("Zero Trust Workload Identity Manager", Ordered, func() {
 				}
 				rotatedCert = c
 				return c.SerialNumber.String()
-			}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).ShouldNot(Equal(initialSerial),
+			}).WithTimeout(utils.DefaultTimeout).WithPolling(utils.DefaultInterval).ShouldNot(Equal(initialSerial),
 				"SVID serial number must change after rotation")
 
 			By("Verifying rotated certificate is still valid")
@@ -615,44 +615,12 @@ var _ = Describe("Zero Trust Workload Identity Manager", Ordered, func() {
 					fmt.Fprintf(GinkgoWriter, "transient error while waiting for pod %s/%s deletion: %v\n", f.Namespace, f.PodName, err)
 				}
 				return false
-			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue(),
+			}).WithTimeout(utils.ShortTimeout).WithPolling(utils.ShortInterval).Should(BeTrue(),
 				"old pod %s/%s should be fully removed", f.Namespace, f.PodName)
 
 			By("Creating a new pod with the same configuration")
 			newPodName := f.PodName + "-new"
-			readOnlyTrue := true
-			newPod := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: newPodName, Namespace: f.Namespace,
-					Labels: map[string]string{"app": "pod-recreate"},
-				},
-				Spec: corev1.PodSpec{
-					ServiceAccountName: f.SAName,
-					Containers: []corev1.Container{
-						{
-							Name: utils.SpiffeHelperContainerName, Image: utils.SpiffeHelperImage,
-							Args: []string{"-config", "/run/spiffe-helper/helper.conf"},
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "spiffe-workload-api", MountPath: "/spiffe-workload-api", ReadOnly: true},
-								{Name: "certs", MountPath: "/certs"},
-								{Name: "spiffe-helper-config", MountPath: "/run/spiffe-helper", ReadOnly: true},
-							},
-						},
-						{
-							Name: f.AppContainer, Image: utils.AppContainerImage,
-							Command: []string{"sleep", "3600"},
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "certs", MountPath: "/certs"},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{Name: "spiffe-workload-api", VolumeSource: corev1.VolumeSource{CSI: &corev1.CSIVolumeSource{Driver: "csi.spiffe.io", ReadOnly: &readOnlyTrue}}},
-						{Name: "certs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-						{Name: "spiffe-helper-config", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: utils.SpiffeHelperConfigMapName}}}},
-					},
-				},
-			}
+			newPod := utils.NewAttestationPod(newPodName, f.Namespace, f.SAName, f.AppContainer, "pod-recreate")
 			Expect(k8sClient.Create(testCtx, newPod)).To(Succeed(), "failed to create new attestation pod")
 
 			By("Waiting for new pod to become ready")
@@ -701,15 +669,6 @@ var _ = Describe("Zero Trust Workload Identity Manager", Ordered, func() {
 			})
 			Expect(err).NotTo(HaveOccurred(), "failed to update ClusterSPIFFEID template")
 
-			DeferCleanup(func(ctx context.Context) {
-				By("Reverting ClusterSPIFFEID template")
-				revert := &spiffev1alpha1.ClusterSPIFFEID{}
-				if getErr := k8sClient.Get(ctx, client.ObjectKey{Name: f.ClusterSPIFFEIDName}, revert); getErr == nil {
-					revert.Spec.SPIFFEIDTemplate = "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
-					k8sClient.Update(ctx, revert)
-				}
-			})
-
 			By("Waiting for SVID to reflect the updated SPIFFE ID")
 			expectedNewSPIFFEID := fmt.Sprintf("spiffe://%s/updated/ns/%s/sa/%s", appDomain, f.Namespace, f.SAName)
 			Eventually(func() string {
@@ -718,7 +677,7 @@ var _ = Describe("Zero Trust Workload Identity Manager", Ordered, func() {
 					return initialSPIFFEID
 				}
 				return cert.URIs[0].String()
-			}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(
+			}).WithTimeout(utils.DefaultTimeout).WithPolling(utils.DefaultInterval).Should(
 				Equal(expectedNewSPIFFEID),
 				"SVID SPIFFE ID must update after ClusterSPIFFEID template change",
 			)
