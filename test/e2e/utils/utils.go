@@ -175,26 +175,6 @@ func IsPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
-// WaitForPodRunning waits for a specific pod to be in Running phase within timeout
-func WaitForPodRunning(ctx context.Context, clientset kubernetes.Interface, name, namespace string, timeout time.Duration) {
-	Eventually(func() bool {
-		pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			fmt.Fprintf(GinkgoWriter, "failed to get pod '%s/%s': %v\n", namespace, name, err)
-			return false
-		}
-
-		if !IsPodRunning(pod) {
-			fmt.Fprintf(GinkgoWriter, "pod '%s/%s' not running yet (phase=%s)\n", namespace, name, pod.Status.Phase)
-			return false
-		}
-
-		fmt.Fprintf(GinkgoWriter, "pod '%s/%s' is running on node '%s'\n", namespace, name, pod.Spec.NodeName)
-		return true
-	}).WithTimeout(timeout).WithPolling(ShortInterval).Should(BeTrue(),
-		"pod '%s/%s' should become running within %v", namespace, name, timeout)
-}
-
 // WaitForPodReady waits for a specific pod to have Ready condition set to True within timeout
 func WaitForPodReady(ctx context.Context, clientset kubernetes.Interface, name, namespace string, timeout time.Duration) {
 	Eventually(func() bool {
@@ -951,12 +931,66 @@ svid_bundle_file_name = %q
 `, c.AgentAddress, c.CertDir, c.SvidFileName, c.SvidKeyFileName, c.SvidBundleFileName)
 }
 
+// NewAttestationPod builds a standard attestation pod with a spiffe-helper sidecar and an app
+// container. Both containers include the required SecurityContext for restricted PSA clusters.
+// Use this wherever you need an attestation pod to avoid spec drift between call sites.
+func NewAttestationPod(name, namespace, saName, appContainer, prefix string) *corev1.Pod {
+	readOnlyTrue := true
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: namespace,
+			Labels: map[string]string{"app": prefix},
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: saName,
+			Containers: []corev1.Container{
+				{
+					Name: SpiffeHelperContainerName, Image: SpiffeHelperImage,
+					Args: []string{"-config", "/run/spiffe-helper/helper.conf"},
+					VolumeMounts: []corev1.VolumeMount{
+						{Name: "spiffe-workload-api", MountPath: "/spiffe-workload-api", ReadOnly: true},
+						{Name: "certs", MountPath: "/certs"},
+						{Name: "spiffe-helper-config", MountPath: "/run/spiffe-helper", ReadOnly: true},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+						RunAsNonRoot:             ptr.To(true),
+						RunAsUser:                ptr.To(int64(1000)),
+						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+					},
+				},
+				{
+					Name: appContainer, Image: AppContainerImage,
+					Command: []string{"sleep", "3600"},
+					VolumeMounts: []corev1.VolumeMount{
+						{Name: "certs", MountPath: "/certs"},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+						RunAsNonRoot:             ptr.To(true),
+						RunAsUser:                ptr.To(int64(1000)),
+						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{Name: "spiffe-workload-api", VolumeSource: corev1.VolumeSource{CSI: &corev1.CSIVolumeSource{Driver: "csi.spiffe.io", ReadOnly: &readOnlyTrue}}},
+				{Name: "certs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+				{Name: "spiffe-helper-config", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: SpiffeHelperConfigMapName}}}},
+			},
+		},
+	}
+}
+
 // AttestationFixture holds resource names for a self-contained attestation test environment.
 type AttestationFixture struct {
-	Namespace    string
-	PodName      string
-	SAName       string
-	AppContainer string
+	Namespace           string
+	PodName             string
+	SAName              string
+	AppContainer        string
+	ClusterSPIFFEIDName string
 }
 
 // SetupAttestationTest creates a complete attestation test environment (namespace, ClusterSPIFFEID,
@@ -1023,53 +1057,7 @@ func SetupAttestationTest(ctx context.Context, k8sClient client.Client, clientse
 	Expect(k8sClient.Create(ctx, cm)).To(Succeed(), "failed to create spiffe-helper ConfigMap")
 
 	By("Creating attestation test pod with CSI volume and spiffe-helper")
-	readOnlyTrue := true
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: podName, Namespace: ns,
-			Labels: map[string]string{"app": prefix},
-		},
-		Spec: corev1.PodSpec{
-			ServiceAccountName: saName,
-			Containers: []corev1.Container{
-				{
-					Name: SpiffeHelperContainerName, Image: SpiffeHelperImage,
-					Args: []string{"-config", "/run/spiffe-helper/helper.conf"},
-					VolumeMounts: []corev1.VolumeMount{
-						{Name: "spiffe-workload-api", MountPath: "/spiffe-workload-api", ReadOnly: true},
-						{Name: "certs", MountPath: "/certs"},
-						{Name: "spiffe-helper-config", MountPath: "/run/spiffe-helper", ReadOnly: true},
-					},
-					SecurityContext: &corev1.SecurityContext{
-						AllowPrivilegeEscalation: ptr.To(false),
-						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-						RunAsNonRoot:             ptr.To(true),
-						RunAsUser:                ptr.To(int64(1000)),
-						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
-					},
-				},
-				{
-					Name: appContainer, Image: "busybox",
-					Command: []string{"sleep", "3600"},
-					VolumeMounts: []corev1.VolumeMount{
-						{Name: "certs", MountPath: "/certs"},
-					},
-					SecurityContext: &corev1.SecurityContext{
-						AllowPrivilegeEscalation: ptr.To(false),
-						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-						RunAsNonRoot:             ptr.To(true),
-						RunAsUser:                ptr.To(int64(1000)),
-						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
-					},
-				},
-			},
-			Volumes: []corev1.Volume{
-				{Name: "spiffe-workload-api", VolumeSource: corev1.VolumeSource{CSI: &corev1.CSIVolumeSource{Driver: "csi.spiffe.io", ReadOnly: &readOnlyTrue}}},
-				{Name: "certs", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
-				{Name: "spiffe-helper-config", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: SpiffeHelperConfigMapName}}}},
-			},
-		},
-	}
+	pod := NewAttestationPod(podName, ns, saName, appContainer, prefix)
 	Expect(k8sClient.Create(ctx, pod)).To(Succeed(), "failed to create attestation test pod")
 
 	By("Waiting for attestation test pod to become ready")
@@ -1091,9 +1079,12 @@ func SetupAttestationTest(ctx context.Context, k8sClient client.Client, clientse
 		))
 
 	return AttestationFixture{
-		Namespace:    ns,
-		PodName:      podName,
-		SAName:       saName,
-		AppContainer: appContainer,
+		Namespace:           ns,
+		PodName:             podName,
+		SAName:              saName,
+		AppContainer:        appContainer,
+		ClusterSPIFFEIDName: cspiffeID.Name,
 	}
 }
+
+
