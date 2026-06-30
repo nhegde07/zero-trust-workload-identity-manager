@@ -66,7 +66,7 @@ Implement an OpenSpec change using OAPE commands, driven by a composed design bu
    ### 1. Compose design bundle
 
    Write `openspec/changes/<name>/implementation/design-bundle.md` using
-   `schemas/openspec-agile-workflow/templates/design-bundle.md`:
+   `schemas/openspec-agile-workflow/templates/design-bundle-template.md`:
    - Include constitution, specs, plan, repo-assessment excerpts
    - Include §4 payload **ONLY for the current Task ID**
    - Add REVISION FEEDBACK when re-running after task rejection
@@ -79,7 +79,7 @@ Implement an OpenSpec change using OAPE commands, driven by a composed design bu
    2. **ELIF** `API_Agent` verification-only → `/oape:api-generate-tests <api-path>`
    3. **ELIF** `API_Agent` → `/oape:api-generate --design-doc <bundle>` then `make update && make verify`
    4. **ELIF** `OperatorController_Agent` → `/oape:api-implement --design-doc <bundle>`
-   5. **ELIF** manual agent → read `{schema_root}/templates/code-generation.md` for FILE OPERATIONS format; implement task payload directly (no OAPE command)
+   5. **ELIF** manual agent → read `{schema_root}/templates/code-generation-template.md` for FILE OPERATIONS format; implement task payload directly (no OAPE command)
 
    Read `.cursor/commands/<command_file>` and execute its full workflow in fork cwd.
 

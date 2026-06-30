@@ -33,11 +33,11 @@ context:
   current_artifacts:
     - openspec/changes/<change>/repo-assessment.md
     - openspec/changes/<change>/constitution.md
-  template: templates/repo-assessment.md
+  template: templates/repo-assessment-template.md
 
 template_update:
   required: true
-  path: templates/repo-assessment.md
+  path: templates/repo-assessment-template.md
   summary: |
     Added In scope vs out of scope section to template skeleton.
 

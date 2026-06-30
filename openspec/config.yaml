@@ -19,7 +19,7 @@ flags:
   max_feedback_rounds: 3          # Max user rejection + refinement loops per artifact before halting (USER_FEEDBACK_PROMPT.md)
   exit_on_all_tasks_complete: true # Exit implementation stage automatically when all tasks in tasks.md are marked [x]
   generate_evaluation_reports: true # Generate <artifact>_evaluation_report.md alongside each artifact
-
+ 
 rules:
   validation:
     - "Read jira_key from inputs/jira.yaml; use inputs/jira-spec.md as spec source"
@@ -35,7 +35,8 @@ rules:
     - "Before creating repo-assessment.md, ensure target_repo is set OR working-folder mode is active (see schema working_folder_repo and target_repo)"
     - "Fact-based inventory only; cite repo evidence for every target file"
   constitution:
-    - "Every principle must cite observable repo evidence"
+    - "INPUT not artifact — resolve via lookup order (target repo, then change inputs/, then schema inputs/)"
+    - "If not found, generate once using templates/constitution-template.md and save to change inputs/"
   plan:
     - "All sections §0–§8; each phase uses Goal, Dependencies, Target files, Verification hooks"
   tasks:

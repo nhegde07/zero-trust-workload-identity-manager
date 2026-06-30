@@ -1,13 +1,13 @@
 # Eval case schema — implementation stage
 
 stage: implementation
-template: templates/implementation.md
+template: templates/implementation-template.md
 artifact: code changes + implementation-report.md
 stage_eval_file: evals/implementation_eval.yaml
 
 consolidated_schema:
   stage: implementation
-  template: templates/implementation.md
+  template: templates/implementation-template.md
   artifact: code + phase FILE OPS
   version: 1
   eval_count: <N>

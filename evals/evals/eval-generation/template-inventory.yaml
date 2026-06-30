@@ -10,64 +10,64 @@ agents_md:
 
 spec_understanding:
   - id: validation
-    file: validation.md
+    file: validation-template.md
     artifact: validation.json
     note: Refine in evals/refined-templates/ — spec-stage eval; not duplicated under baseline/evals/
   - id: specs
-    file: spec.md
+    file: spec-template.md
     artifact: specs.md
     note: Spec authoring template; gaps inform validation refinement
 
 repo_understanding:
   - id: repo-assessment
-    file: repo-assessment.md
+    file: repo-assessment-template.md
     artifact: repo-assessment.md
     eval_stage: repo-assessment
     stage_eval_file: evals/baseline/evals/repo-assessment/repo-assessment_eval.yaml
   - id: constitution
-    file: constitution.md
+    file: constitution-template.md
     artifact: constitution.md
     eval_stage: constitution
     stage_eval_file: evals/baseline/evals/constitution/constitution_eval.yaml
 
 planning:
   - id: plan
-    file: plan.md
+    file: plan-template.md
     artifact: plan.md
     eval_stage: plan
     stage_eval_file: evals/baseline/evals/plan/plan_eval.yaml
 
 task_creation:
   - id: tasks
-    file: tasks.md
+    file: tasks-template.md
     artifact: tasks.md
     eval_stage: tasks
     stage_eval_file: evals/baseline/evals/tasks/tasks_eval.yaml
   - id: tasks-skeleton
-    file: tasks-modes/skeleton.md
+    file: tasks-modes/skeleton-template.md
   - id: tasks-payloads
-    file: tasks-modes/payloads.md
+    file: tasks-modes/payloads-template.md
   - id: tasks-orchestration
-    file: tasks-modes/orchestration.md
+    file: tasks-modes/orchestration-template.md
   - id: tasks-single
-    file: tasks-modes/single.md
+    file: tasks-modes/single-template.md
   - id: tasks-impact-assessment
-    file: tasks-modes/impact_assessment.md
+    file: tasks-modes/impact_assessment-template.md
   - id: tasks-payload-revision
-    file: tasks-modes/payload_revision.md
+    file: tasks-modes/payload_revision-template.md
 
 implementation:
   - id: implementation
-    file: implementation.md
+    file: implementation-template.md
     artifact: code + phase FILE OPS
     eval_stage: implementation
     stage_eval_file: evals/baseline/evals/implementation/implementation_eval.yaml
   - id: implementation-report
-    file: implementation-report.md
+    file: implementation-report-template.md
   - id: implementation-checklist
-    file: implementation-checklist.md
+    file: implementation-checklist-template.md
   - id: adrs
-    file: adrs.md
+    file: adrs-template.md
 
 code_generation:
   description: >-

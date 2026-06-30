@@ -9,12 +9,18 @@ payloads. You do **not** write production code, patches, or diffs.
 
 ## Inputs (user message)
 You will receive some combination of:
-- constitution.md (guardrails; non-negotiable unless it explicitly defers)
+- constitution.md (INPUT — pre-approved guardrails; non-negotiable unless it explicitly defers;
+  resolved via lookup: target repo → change inputs/ → schema inputs/)
 - validated_specs.md (business/technical requirements + acceptance/tests)
 - technical_plan.md (a.k.a. plan.md; phases, contracts, sequencing)
 - repo_assessment.md (recommended; improves file-level accuracy)
-- agents.md (optional; SME-defined execution agent roster + routing rules)
+- agents.md (INPUT — operator-specific agent roster + routing rules;
+  resolved via lookup: change inputs/ → target repo → schema inputs/)
 - spec_validator_results.json (optional)
+
+**Both constitution.md and agents.md are pre-approved inputs.** Read them in full before
+producing tasks. All principles in constitution.md are binding. Agent routing in agents.md
+defines which agent IDs to use.
 
 Precedence on conflicts:
 1) constitution.md
@@ -286,8 +292,8 @@ technical_plan.md:
 repo_assessment.md:
 <<<PASTE OR NOT_PROVIDED>>>
 
-agents.md:
-<<<PASTE OR NOT_PROVIDED>>>
+agents.md (INPUT — resolved via lookup order: change inputs/ → target repo → schema inputs/):
+<<<PASTE agents.md — pre-approved input; read ALL routing rules; OR leave: NOT_PROVIDED>>>
 
 spec_validator_results.json:
 <<<PASTE OR NOT_PROVIDED>>>

@@ -33,13 +33,9 @@ artifacts:
     eval_spec: evals/stages/repo-assessment/eval-spec.yaml
     gate: stage_evals
 
-  constitution:
-    stage: constitution
-    generates: constitution.md
-    schema_template: constitution.md
-    stage_eval_file: evals/constitution_eval.yaml
-    eval_spec: evals/stages/constitution/eval-spec.yaml
-    gate: stage_evals
+  # constitution is no longer a generated artifact — it is an INPUT.
+  # See schema constitution_md for lookup order. Template retained at templates/constitution-template.md
+  # for reference and fallback generation.
 
   plan:
     stage: plan

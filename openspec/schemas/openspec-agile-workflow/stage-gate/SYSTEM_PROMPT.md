@@ -206,13 +206,17 @@ Present to user:
 
 Do **not** create the next artifact in the same invocation.
 
-## Co-generated artifacts (repo-assessment + constitution)
+## Constitution as input (not generated)
 
-If both are created in one session (same invocation per schema co-generation):
+Constitution.md is **not** a generated artifact — it is resolved as an input before planning.
+See schema `constitution_md.lookup_order`:
+1. `{target_repo}/constitution.md`
+2. `{target_repo}/CONSTITUTION.md`
+3. `openspec/changes/<change>/inputs/constitution.md`
+4. `{schema_root}/inputs/constitution.md`
 
-- Run eval gate **separately** for each artifact file
-- Refine each failing artifact independently
-- Single joint approval question covering both scorecards (per schema `joint_with`)
+If not found, the agent generates one using `templates/constitution-template.md` as a one-time step
+(not a recurring artifact stage) and saves it to `openspec/changes/<change>/inputs/constitution.md`.
 
 ## Guardrails
 

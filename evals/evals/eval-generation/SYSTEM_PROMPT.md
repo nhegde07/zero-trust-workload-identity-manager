@@ -77,7 +77,7 @@ Do **NOT** patch `schemas/openspec-agile-workflow/templates/`.
 
 ### 4. Refine spec validation template
 
-Update `evals/refined-templates/validation.md` based on taxonomy gaps.
+Update `evals/refined-templates/validation-template.md` based on taxonomy gaps.
 
 Document in `evals/outputs/eval-generation/validation-refinements.md`.
 Save diff in `evals/outputs/eval-generation/refinement-patches/validation.md.patch`.
@@ -103,7 +103,7 @@ Save diff in `evals/outputs/eval-generation/refinement-patches/validation.md.pat
 
 ```yaml
 stage: constitution
-template: evals/refined-templates/constitution.md
+template: evals/refined-templates/constitution-template.md
 artifact: constitution.md
 version: 1
 eval_count: 6
@@ -136,7 +136,7 @@ Rules:
 - Update `eval_count` after merge
 - Set `template:` to `evals/refined-templates/<template>.md` for the stage
 - Minimum **3 eval cases per stage** per round (or document why fewer)
-- **Do NOT** duplicate validation as eval YAML — refine `evals/refined-templates/validation.md` instead
+- **Do NOT** duplicate validation as eval YAML — refine `evals/refined-templates/validation-template.md` instead
 
 Use rubric schema from `evals/stages/<stage>/eval-spec.yaml`.
 
@@ -203,10 +203,10 @@ version: 3
 stage_eval_files:
   repo-assessment:
     path: evals/baseline/evals/repo-assessment/repo-assessment_eval.yaml
-    template: evals/refined-templates/repo-assessment.md
+    template: evals/refined-templates/repo-assessment-template.md
   constitution:
     path: evals/baseline/evals/constitution/constitution_eval.yaml
-    template: evals/refined-templates/constitution.md
+    template: evals/refined-templates/constitution-template.md
   # ... plan, tasks, implementation
 rounds:
   - round: 1

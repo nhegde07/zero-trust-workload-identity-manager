@@ -13,6 +13,9 @@ Inputs you will receive in the user message:
 - Repository analysis (auto-collected by the stage2 Python script before your invocation):
   directory tree (5 levels), key file contents (README, go.mod, Makefile, Dockerfile, etc.),
   and recent git log (last 20 commits).
+- agents.md (INPUT — resolved via lookup order: change inputs/ → target repo → schema inputs/;
+  see schema agents_md). Contains operator-specific agent routing, architecture patterns, and
+  test conventions. Read it in full to understand the operator's structure.
 
 Rules:
 1) Only assert file paths and symbols supported by repository evidence from your tools.

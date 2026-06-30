@@ -3,9 +3,10 @@ version: 1
 description: >-
   Gated spec-driven workflow: Spec Understanding → Repo Understanding → Planning →
   Task Creation → Implementation. Produces validation.json, specs.md,
-  repo-assessment.md, constitution.md, plan.md, tasks.md, and (during
-  implementation) implementation-report.md, implementation-checklist.md, and
-  optional adrs.md. Implementation uses OAPE command orchestration (/opsx:apply).
+  repo-assessment.md, plan.md, tasks.md, and (during implementation)
+  implementation-report.md, implementation-checklist.md, and optional adrs.md.
+  constitution.md is an INPUT (resolved from target repo or schema inputs/).
+  Implementation uses OAPE command orchestration (/opsx:apply).
   Templates from templates/.
 
 templates_dir: templates
@@ -16,8 +17,8 @@ templates_dir: templates
 agents_md:
   description: 
     SME-defined execution agent roster and routing rules from the target repository.
-    Used for AgentRoutingMode (constitution), phase capability mapping (plan), and
-    Assigned Agent values (tasks). Not used during Spec Understanding.
+    Used for phase capability mapping (plan), Assigned Agent values (tasks), and
+    operator-specific test patterns (implementation). Not used during Spec Understanding.
   canonical_file:
     path: agents.md
     path_relative_to_schema: agents.md
@@ -32,10 +33,10 @@ agents_md:
   used_in_stages:
     - id: repo-understanding
       required: false
-      when: repo-assessment and constitution authoring
+      when: repo-assessment authoring
       effect: >-
-        If found, constitution sets AgentRoutingMode PROVIDED and summarizes agent IDs.
-        If missing, AgentRoutingMode is PROVISIONAL.
+        If found, repo-assessment notes agent IDs for downstream use.
+        AgentRoutingMode is set in the pre-approved constitution.md input.
     - id: planning
       required: false
       when: plan.md authoring (§0–§8)
@@ -59,27 +60,68 @@ agents_md:
   not_used_in_stages:
     - spec-understanding
   lookup_order:
-    - "openspec/changes/<change>/inputs/AGENTS.md"
-    - "openspec/changes/<change>/inputs/agents.md"
     - "{target_repo}/AGENTS.md"
     - "{target_repo}/agents.md"
+    - "{schema_root}/inputs/agents.md"
     - "{schema_root}/agents.md"
   when_missing: >-
     Before starting repo-assessment, plan, or tasks — resolve agents.md using
-    lookup_order. The schema package ships agents.md at {schema_root}/agents.md
-    (installed by install.sh). Persist a copy to openspec/changes/<change>/inputs/AGENTS.md
-    when first resolved so downstream artifacts reference a stable path. If still
-    absent, ask the user once to provide AGENTS.md. Do not invent agent IDs. If
-    the user declines, proceed with AgentRoutingMode PROVISIONAL and document in
-    constitution.md, plan.md, and tasks.md.
+    lookup_order. Check the target repo first, then schema inputs/ folder, then
+    schema root. The schema package ships agents.md at {schema_root}/inputs/agents.md
+    and {schema_root}/agents.md (installed by install.sh). Persist a copy to
+    openspec/changes/<change>/inputs/AGENTS.md when first resolved so downstream
+    artifacts reference a stable path. If still absent, ask the user once to provide
+    AGENTS.md. Do not invent agent IDs. If the user declines, proceed with
+    AgentRoutingMode PROVISIONAL and document in plan.md and tasks.md.
+
+# ---------------------------------------------------------------------------
+# constitution_md — pre-approved constitution provided as input
+# ---------------------------------------------------------------------------
+constitution_md:
+  description: >-
+    Pre-approved constitution document provided as an input. Contains non-negotiable
+    guardrails, coding conventions, development workflow, and governance rules derived
+    from the operator's codebase. Used as input for Planning, Task Creation, and
+    Implementation stages. NOT generated as an artifact — provided by the operator team.
+  lookup_order:
+    - "{target_repo}/constitution.md"
+    - "{target_repo}/CONSTITUTION.md"
+    - "{schema_root}/inputs/constitution.md"
+  when_missing: >-
+    Before starting planning (plan.md), resolve constitution.md using lookup_order.
+    Check target repo first, then schema inputs/. If still not found, ask the user
+    once to provide constitution.md. If the user declines, generate one using
+    templates/constitution-template.md as a one-time generation step (not a standard artifact
+    stage), save to {schema_root}/inputs/constitution.md, and proceed.
+  used_in_stages:
+    - id: planning
+      required: true
+      when: plan.md authoring
+      effect: Provides non-negotiable guardrails and AgentRoutingMode for planning.
+    - id: task-creation
+      required: true
+      when: tasks.md authoring
+      effect: Enforces coding conventions and testing requirements in task payloads.
+    - id: implementation
+      required: true
+      when: OAPE command execution and code generation
+      effect: Code must follow constitution principles; verified during code eval gate.
+  not_used_in_stages:
+    - spec-understanding
+  template_for_generation: templates/constitution-template.md
+  note: >-
+    The constitution.md template remains in templates/ for reference and for one-time
+    generation if no pre-approved constitution exists. But in normal operation,
+    constitution is an INPUT — not a generated artifact.
 
 # ---------------------------------------------------------------------------
 # target_repo — upstream GitHub repo for assessment and planning
 # ---------------------------------------------------------------------------
 target_repo:
   description: >-
-    Upstream GitHub repository URL used for repo-assessment, constitution, plan,
-    and tasks. Distinct from fork_repo_url (user's fork for implementation).
+    Upstream GitHub repository URL used for repo-assessment, plan, and tasks.
+    Also checked for constitution.md (see constitution_md.lookup_order).
+    Distinct from fork_repo_url (user's fork for implementation).
   collected_at: repo-understanding
   stored_in: openspec/changes/<change>/inputs/jira.yaml
   field: target_repo
@@ -98,7 +140,7 @@ target_repo:
     **Default mode:** If target_repo is absent or empty, ask the user once:
     "Provide the URL of the target GitHub repository (e.g.
     https://github.com/org/repo)." Persist target_repo to inputs/jira.yaml.
-    Do not start repo-assessment or constitution until the URL is recorded.
+    Do not start repo-assessment until the URL is recorded.
     Verify the repository is accessible (clone, fetch, or GitHub MCP) before
     writing repo-assessment.md.
   usage: >-
@@ -133,8 +175,8 @@ working_folder_repo:
   assessment_and_planning:
     repo_root: >-
       The current working directory (project root). Use local git metadata, tree,
-      and file contents for repo-assessment, constitution, plan, and tasks — do
-      not clone a separate remote checkout for these stages.
+      and file contents for repo-assessment, plan, and tasks — do not clone a
+      separate remote checkout for these stages.
     target_repo_prompt: >-
       When use_working_folder_as_repo is true, do NOT ask for a GitHub URL before
       repo-assessment if the cwd is a git repository. Derive target_repo from
@@ -178,7 +220,6 @@ stage_eval_gate:
   evals_dir: evals
   stage_eval_files:
     repo-assessment: evals/repo-assessment_eval.yaml
-    constitution: evals/constitution_eval.yaml
     plan: evals/plan_eval.yaml
     tasks: evals/tasks_eval.yaml
     implementation: evals/implementation_eval.yaml
@@ -243,7 +284,7 @@ code_generation_eval_gate:
   max_refinement_passes: 2
   task_report:
     path: openspec/changes/<change>/implementation/task-reports/<task-id>.md
-    template: templates/implementation-task-report.md
+    template: templates/implementation-task-report-template.md
     write_on: task_approve
   phase_log: openspec/changes/<change>/implementation-phase-log.md
   flow: >-
@@ -290,7 +331,7 @@ user_approval_feedback_gate:
     round_summary: >-
       openspec/changes/<change>/feedback_stage_artifacts/<artifact-id>/round-<N>.yaml
     joint_round_summary: >-
-      openspec/changes/<change>/feedback_stage_artifacts/repo-assessment+constitution/round-<N>.yaml
+      openspec/changes/<change>/feedback_stage_artifacts/repo-assessment/round-<N>.yaml
   max_feedback_rounds:
     default: 3
     config_key: flags.max_feedback_rounds
@@ -322,8 +363,7 @@ user_approval_feedback_gate:
         in round summary.
       - >-
         Regenerate ONLY the current artifact at outputPath using revision context
-        and user feedback. For joint gates (repo-assessment + constitution),
-        regenerate both co-generated artifacts in one feedback round — never
+        and user feedback. Regenerate only the current artifact — never
         upstream approved artifacts.
       - >-
         Write round summary to feedback_stage_artifacts/<artifact-id>/round-<N>.yaml
@@ -366,7 +406,7 @@ user_approval_feedback_gate:
         - >-
           If feedback requires changing an approved upstream artifact, stop and
           tell the user which artifact must be reopened — do not silently edit it
-        - Overwrite only the current artifact outputPath (or joint co-generated paths)
+        - Overwrite only the current artifact outputPath
         - Do not invent facts not supported by immutable inputs or change inputs
         - Re-run eval gate after regeneration when applicable
   on_approve:
@@ -384,10 +424,9 @@ user_approval_feedback_gate:
       status "done". During feedback on artifact X, never write to those paths.
     never_modify_during_feedback:
       - Any artifact with status done except the artifact(s) currently under approval
-    joint_gate_exception: >-
-      repo-assessment and constitution are co-generated and share one approval gate.
-      Both may be revised together during feedback, but specs.md and all earlier
-      artifacts remain immutable.
+    note: >-
+      Each artifact has its own approval gate. specs.md and all earlier
+      artifacts remain immutable during any feedback loop.
   applies_to:
     gate_types:
       - approval
@@ -397,7 +436,6 @@ user_approval_feedback_gate:
       - validation
       - specs
       - repo-assessment
-      - constitution
       - plan
       - tasks
       - implementation
@@ -430,7 +468,7 @@ user_approval_feedback_gate:
             feedback_stage_artifacts/specs/round-1.yaml (single entry; no refinement
             rounds).
           - Do NOT regenerate specs.md
-          - Do NOT unlock repo-assessment, constitution, plan, tasks, or implementation
+          - Do NOT unlock repo-assessment, plan, tasks, or implementation
           - STOP — exit the workflow for this change
         exit_message: >-
           specs.md was not approved. The openspec-agile-workflow stops at Spec
@@ -439,8 +477,8 @@ user_approval_feedback_gate:
           new change (/opsx-new) or delete specs.md and re-run /opsx-continue when
           the user is ready to regenerate specs.
         approval_prompt: >-
-          Approve specs.md and proceed to Repo Understanding (repo-assessment +
-          constitution)? (Approve / Reject — rejection exits the workflow)
+          Approve specs.md and proceed to Repo Understanding (repo-assessment)?
+          (Approve / Reject — rejection exits the workflow)
 fork_repo:
   description: >-
     User's forked GitHub repository where implementation code is written, committed,
@@ -523,7 +561,7 @@ oape_routing:
     runs task-by-task: compose a design bundle scoped to one task, invoke exactly
     one allowed OAPE command for that task (see command_resolution), verify,
     then request user approval before advancing.
-  code_generation_prompt: templates/code-generation.md
+  code_generation_prompt: templates/code-generation-template.md
   reference: oape-ai-e2e/AGENTS.md
   commands_dir: .cursor/commands
   allowed_commands:
@@ -559,7 +597,7 @@ oape_routing:
     args: "<fork-default-branch>"
   design_bundle:
     path: openspec/changes/<change>/implementation/design-bundle.md
-    template: templates/design-bundle.md
+    template: templates/design-bundle-template.md
     composed_from:
       - constitution.md
       - specs.md
@@ -691,8 +729,8 @@ workflow:
     name: Repo Understanding Stage
     description: >-
       Agent reads and contextualizes the target GitHub repository using the
-      approved spec and Agents.md. Repo assessment and constitution are
-      evaluated by the user before proceeding.
+      approved spec and Agents.md. Repo assessment is evaluated by the user
+      before proceeding. Constitution.md is resolved as an input (not generated).
     inputs:
       - specs.md
       - GitHub repository (inputs/jira.yaml target_repo — required; see schema target_repo)
@@ -700,19 +738,19 @@ workflow:
       - Functional SME context
     outputs:
       - repo-assessment.md
-      - constitution.md
     gate: user_approval
     feedback_gate: user_approval_feedback_gate
 
   - id: planning
     name: Planning Stage
     description: >-
-      Technical planning using approved repo assessment, constitution, and specs.
+      Technical planning using approved repo assessment, constitution (input), and specs.
       Planning approach is evaluated by the user before plan.md is finalized.
+      Constitution.md is resolved via schema constitution_md.lookup_order before this stage.
     inputs:
       - specs.md
       - repo-assessment.md
-      - constitution.md
+      - constitution.md (input — resolved via constitution_md.lookup_order; see schema constitution_md)
       - AGENTS.md (optional — ask user if missing; see agents_md.when_missing)
       - validation.json
     outputs:
@@ -728,7 +766,7 @@ workflow:
       Evaluated by the user before implementation.
     inputs:
       - specs.md
-      - constitution.md
+      - constitution.md (input — resolved via constitution_md.lookup_order)
       - repo-assessment.md
       - plan.md
       - AGENTS.md (optional — ask user if missing; see agents_md.when_missing)
@@ -774,7 +812,7 @@ artifacts:
     generates: validation.json
     format: json
     description: Specification Validation — quality gate on the Jira spec before spec authoring
-    template: validation.md
+    template: validation-template.md
     instruction: |
       You are the "Specification Validator": a quality gate for software specs before engineering.
 
@@ -811,7 +849,7 @@ artifacts:
     generates: specs.md
     format: markdown
     description: User Approved Specs — feature specification from the validated Jira ticket
-    template: spec.md
+    template: spec-template.md
     instruction: |
       Transform the Jira specification into a user-approved specs.md artifact.
 
@@ -842,19 +880,18 @@ artifacts:
 
   - id: repo-assessment
     workflow_stage: repo-understanding
-    co_generated_with:
-      - constitution
     generates: repo-assessment.md
     format: markdown
     description: Repo Assessment Report — grounded engineering inventory for planning
-    template: repo-assessment.md
+    template: repo-assessment-template.md
     instruction: |
       Produce a Repo Assessment Report from the approved spec and repository analysis.
 
       ## Inputs
       - User Approved specs.md
       - GitHub repository (tree, key files, git metadata)
-      - AGENTS.md when available (see schema agents_md — ask user if not in repo)
+      - agents.md (INPUT — resolved via lookup: change inputs/ → target repo → schema inputs/;
+        contains operator architecture, agent routing, and test patterns; read in full)
       - Functional SME context when provided
 
       ## Process
@@ -866,86 +903,49 @@ artifacts:
          - **Default mode:** If target_repo is absent or empty, ask the user once,
            persist to jira.yaml, and verify the repository is accessible. Do not
            proceed until recorded.
-      1. Resolve AGENTS.md: check target repo and change inputs/; if absent, ask the user
-         once to provide AGENTS.md before continuing (or proceed PROVISIONAL if declined).
+      1. Resolve agents.md: check target repo, then schema inputs/.
+         Read it in full — it contains operator-specific architecture and routing.
+         If absent, ask the user once to provide it (or proceed PROVISIONAL if declined).
       2. Read and contextualize the repository; cross-reference with specs.md.
       3. Read the Repository Assessment Agent preamble and output template in
          repo-assessment.md — follow both.
       4. Document target files, reusable assets, guardrails, and risks with evidence.
-      5. Fact-based inventory only — no governance principles (those go in constitution.md).
-
-      Co-generated with constitution.md; both evaluated together by the user.
+      5. Fact-based inventory only — no governance principles (those go in constitution.md input).
 
       ## APPROVAL GATE
       0. **Eval gate** (see schema stage_eval_gate): score repo-assessment.md against
          evals/repo-assessment_eval.yaml; refine artifact
          if needed; write eval-results/repo-assessment.yaml.
       1. SUMMARIZE: target files, reusable assets, guardrails, top risks, eval score.
-      2. ASK: see schema user_approval_feedback_gate.approval_prompt (joint with constitution).
+      2. ASK: Approve repo-assessment.md and proceed to Planning?
       3. ON REJECT: Run user_approval_feedback_gate — update templates if required;
-         regenerate repo-assessment.md and constitution.md only; write round summary
-         to feedback_stage_artifacts; specs.md and all earlier artifacts remain
-         immutable. Re-run eval gate for both; re-ask approval.
-      4. ON APPROVE: Lock both artifacts as immutable; unlock Planning Stage.
+         regenerate repo-assessment.md only; write round summary to
+         feedback_stage_artifacts; specs.md and all earlier artifacts remain
+         immutable. Re-run eval gate; re-ask approval.
+      4. ON APPROVE: Lock artifact as immutable; resolve constitution.md (see schema
+         constitution_md.lookup_order); unlock Planning Stage.
     gate:
       type: approval
       evaluated_by: user
       feedback_gate: user_approval_feedback_gate
-      joint_with:
-        - constitution
     requires:
       - specs
 
-  - id: constitution
-    workflow_stage: repo-understanding
-    co_generated_with:
-      - repo-assessment
-    generates: constitution.md
-    format: markdown
-    description: Project constitution — repo-grounded principles and governance for planning
-    template: constitution.md
-    instruction: |
-      Derive constitution.md from repository conventions and the approved spec.
-
-      ## Process
-      0. Confirm repo target in inputs/jira.yaml (see schema target_repo and
-         working_folder_repo).
-         - **Working-folder mode:** use_working_folder_as_repo true → analyze cwd;
-           derive target_repo from origin if needed; do not clone separately.
-         - **Default mode:** target_repo must be set; halt and resolve if missing.
-      1. Resolve AGENTS.md: if not found in target repo or change inputs/, ask the user
-         once to provide AGENTS.md (see schema agents_md.when_missing).
-      2. Read repository analysis and specs.md.
-      3. Read the Constitution Agent preamble and output template in constitution.md — follow both.
-      4. Every principle must cite observable repo evidence.
-      5. Set AgentRoutingMode PROVIDED if AGENTS.md exists; otherwise PROVISIONAL.
-      6. No file inventories or risk analysis — those belong in repo-assessment.md.
-
-      Co-generated with repo-assessment.md; joint user approval gate.
-
-      ## APPROVAL GATE
-      0. **Eval gate** (see schema stage_eval_gate): score constitution.md against
-         evals/constitution_eval.yaml; refine artifact if needed.
-      See repo-assessment artifact for joint approval steps.
-    gate:
-      type: approval
-      evaluated_by: user
-      feedback_gate: user_approval_feedback_gate
-      joint_with:
-        - repo-assessment
-    requires:
-      - specs
+  # constitution is no longer a generated artifact — it is an INPUT.
+  # See schema constitution_md for lookup order and resolution.
+  # The template at templates/constitution-template.md is retained for reference and one-time generation
+  # if no pre-approved constitution exists (see constitution_md.when_missing).
 
   - id: plan
     workflow_stage: planning
     generates: plan.md
     format: markdown
     description: Technical Implementation Plan — architectural blueprint (sections 0–8)
-    template: plan.md
+    template: plan-template.md
     inputs:
       required:
         - specs.md
-        - constitution.md
+        - constitution.md (INPUT — resolved via schema constitution_md.lookup_order)
         - repo-assessment.md
       optional:
         - AGENTS.md
@@ -955,15 +955,18 @@ artifacts:
       Create plan.md — the Technical Implementation Plan for the feature.
 
       ## Input precedence (conflicts)
-      1. constitution.md (non-negotiable guardrails)
+      1. constitution.md (non-negotiable guardrails — resolved as INPUT, not generated)
       2. specs.md (validated feature requirements)
       3. repo-assessment.md (repo facts, target files, reuse mandates)
       4. AGENTS.md (optional — agent routing)
       5. validation.json (optional — Stage 0 gaps)
 
       ## Process
-      0. Resolve AGENTS.md: if not found in target repo or change inputs/, ask the user
-         once to provide AGENTS.md before planning (see schema agents_md.when_missing).
+      0. Resolve constitution.md: check target repo first ({target_repo}/constitution.md),
+         then change inputs/, then schema inputs/ (see schema constitution_md.lookup_order).
+         If not found, generate once using templates/constitution-template.md and save to inputs/.
+      0b. Resolve AGENTS.md: if not found in target repo or change inputs/, ask the user
+          once to provide AGENTS.md before planning (see schema agents_md.when_missing).
       1. Read all inputs and plan.md template (§0–§8 output schema).
       2. Produce plan.md with all sections §0 through §8 in full.
       3. §1 MUST include a repo-grounded reality check citing repo-assessment.
@@ -989,14 +992,13 @@ artifacts:
     requires:
       - specs
       - repo-assessment
-      - constitution
 
   - id: tasks
     workflow_stage: task-creation
     generates: tasks.md
     format: markdown
     description: Execution backlog — dependency DAG, agent routing, payloads, orchestration notes
-    template: tasks.md
+    template: tasks-template.md
     template_modes_dir: tasks-modes
     inputs:
       required:
@@ -1048,28 +1050,28 @@ artifacts:
       ## Generation modes (matches test harness stage4_tasks.py)
       Prefer multipass for large backlogs:
 
-      **Pass 1 — skeleton** (`tasks-modes/skeleton.md`):
+      **Pass 1 — skeleton** (`tasks-modes/skeleton-template.md`):
         Generate §0–§3 only + fenced `tasks_index.json` array.
         Required JSON fields per task: id, title, summary, phase, depends_on,
         agent, parallel_ok, complexity (1|2|3|5|8), risk (Low|Med|High).
 
-      **Pass 2 — payloads** (`tasks-modes/payloads.md`):
+      **Pass 2 — payloads** (`tasks-modes/payloads-template.md`):
         Generate §4 subsections for each task batch (by plan phase).
         May split batches on truncation; never skip a task ID.
 
-      **Pass 3 — orchestration** (`tasks-modes/orchestration.md`):
+      **Pass 3 — orchestration** (`tasks-modes/orchestration-template.md`):
         Generate §5 only from full tasks_index.json.
 
-      **Pass 4 — impact_assessment** (`tasks-modes/impact_assessment.md`):
+      **Pass 4 — impact_assessment** (`tasks-modes/impact_assessment-template.md`):
         When user rejects a phase in phase-feedback mode, classify feedback as
         structural (skeleton change) vs payload-level (revision only).
         Respond with JSON: structural, affected_phases, revision_notes,
         and skeleton_guidance OR payload_guidance.
 
-      **Pass 5 — payload_revision** (`tasks-modes/payload_revision.md`):
+      **Pass 5 — payload_revision** (`tasks-modes/payload_revision-template.md`):
         Re-generate §4 payloads incorporating user feedback and revision guidance.
 
-      **single mode** (`tasks-modes/single.md`):
+      **single mode** (`tasks-modes/single-template.md`):
         One response with complete §0–§5 (may truncate if >15 tasks).
 
       Merge scratch artifacts (skeleton + payloads + orchestration) into final tasks.md.
@@ -1109,19 +1111,19 @@ artifacts:
         - id: skeleton
           generates_sections: "0-3"
           also_generates: tasks_index.json
-          mode_template: tasks-modes/skeleton.md
+          mode_template: tasks-modes/skeleton-template.md
         - id: payloads
           generates_sections: "4"
           batched_by: plan_phase
-          mode_template: tasks-modes/payloads.md
+          mode_template: tasks-modes/payloads-template.md
         - id: orchestration
           generates_sections: "5"
-          mode_template: tasks-modes/orchestration.md
+          mode_template: tasks-modes/orchestration-template.md
         - id: impact_assessment
-          mode_template: tasks-modes/impact_assessment.md
+          mode_template: tasks-modes/impact_assessment-template.md
           trigger: phase_feedback_rejection
         - id: payload_revision
-          mode_template: tasks-modes/payload_revision.md
+          mode_template: tasks-modes/payload_revision-template.md
           trigger: non_structural_phase_rejection
       scratch_dir: output/_stage4
       regenerate_orchestration_only:
@@ -1146,7 +1148,7 @@ artifacts:
   - id: implementation
     workflow_stage: implementation
     generates: implementation-phase-log.md
-    template: implementation.md
+    template: implementation-template.md
     description: >-
       OAPE orchestration — task-by-task execution into the fork using composed
       design-bundle.md (tasks.md + upstream artifacts) and /oape:* cursor commands.
@@ -1220,7 +1222,7 @@ artifacts:
 
       ## Design bundle (each task)
       1. Create openspec/changes/<change>/implementation/ if missing.
-      2. Write implementation/design-bundle.md using templates/design-bundle.md.
+      2. Write implementation/design-bundle.md using templates/design-bundle-template.md.
       3. Include constitution, specs, plan, repo-assessment excerpts + §4 payload
          for ONLY the **current Task ID** (not the whole phase).
       4. Derive API specification and Reconciliation workflow sections for OAPE
@@ -1243,7 +1245,7 @@ artifacts:
       5. **Follow-up**: Run follow_up make targets when defined (make update, etc.).
       6. **Manual agents**: For ManifestsBindata_Agent, OLMRelease_Agent,
          RBACSecurity_Agent, WebhookTLS_Agent, Docs_Agent — read
-         templates/code-generation.md for FILE OPERATIONS format; implement this
+         templates/code-generation-template.md for FILE OPERATIONS format; implement this
          task's payload directly in cwd with minimal scoped edits; log deviations.
       7. **Verify**: Run Acceptance criteria for this task; record pass/fail.
       8. **Code eval gate** (see schema code_generation_eval_gate and
@@ -1333,7 +1335,7 @@ artifacts:
     co_generated_with:
       - implementation-checklist
     generates: implementation-report.md
-    template: implementation-report.md
+    template: implementation-report-template.md
     format: markdown
     description: >-
       Post-execution summary written at the end of the Implementation Stage after
@@ -1368,7 +1370,7 @@ artifacts:
     co_generated_with:
       - implementation-report
     generates: implementation-checklist.md
-    template: implementation-checklist.md
+    template: implementation-checklist-template.md
     format: markdown
     description: >-
       Traceability checklist mapping every touched file to specs.md requirement IDs.
@@ -1391,7 +1393,7 @@ artifacts:
   - id: adrs
     workflow_stage: implementation
     generates: adrs.md
-    template: adrs.md
+    template: adrs-template.md
     format: markdown
     description: >-
       Architectural Decision Records — deviation log written only when one or more
@@ -1426,10 +1428,10 @@ apply:
   requires:
     - tasks
     - specs
-    - constitution
     - plan
   optional_context:
     - repo-assessment
+    - constitution.md (input — resolved via constitution_md.lookup_order)
     - AGENTS.md
   fork_repo: >-
     {fork_repo_url from inputs/jira.yaml — ask at stage start if missing in default

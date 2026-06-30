@@ -70,7 +70,7 @@ validation.json → specs.md → repo-assessment.md → constitution.md → plan
 
 | Artifact | Stage eval file (under `{schema_root}/`) |
 |----------|------------------------------------------|
-| validation | Rubric in `templates/validation.md` only |
+| validation | Rubric in `templates/validation-template.md` only |
 | specs | Skip (no stage eval) |
 | repo-assessment | `evals/repo-assessment_eval.yaml` |
 | constitution | `evals/constitution_eval.yaml` |

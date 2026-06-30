@@ -1,13 +1,13 @@
 # Eval case schema — constitution stage
 
 stage: constitution
-template: templates/constitution.md
+template: templates/constitution-template.md
 artifact: constitution.md
 stage_eval_file: evals/constitution_eval.yaml
 
 consolidated_schema:
   stage: constitution
-  template: templates/constitution.md
+  template: templates/constitution-template.md
   artifact: constitution.md
   version: 1
   eval_count: <N>

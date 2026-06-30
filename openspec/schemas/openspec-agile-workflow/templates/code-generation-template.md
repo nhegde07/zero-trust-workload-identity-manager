@@ -125,7 +125,7 @@ orchestrator handles that step.
 | Fork/repo setup, feature branch, draft PR | Schema `fork_repo`, `working_folder_repo` |
 | Code-generation eval scoring + refinement | `stage-gate/CODE_GENERATION_EVAL_PROMPT.md` |
 | User approval prompt | Schema `oape_routing.task_approval_prompt` |
-| Task report (post-approval) | `templates/implementation-task-report.md` |
-| Closing report + checklist | `templates/implementation-report.md` |
-| Design bundle composition | `templates/design-bundle.md` |
+| Task report (post-approval) | `templates/implementation-task-report-template.md` |
+| Closing report + checklist | `templates/implementation-report-template.md` |
+| Design bundle composition | `templates/design-bundle-template.md` |
 | Orchestration (task ordering, DAG) | Schema `oape_routing.task_loop` |

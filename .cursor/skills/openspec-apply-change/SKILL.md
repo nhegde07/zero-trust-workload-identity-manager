@@ -17,7 +17,7 @@ Implement an OpenSpec change using OAPE command orchestration (see `/opsx:apply`
 **Per-task mandatory sequence:**
 
 ```
-OAPE (or manual — see `{schema_root}/templates/code-generation.md`) → verify → code-generation evals → refine code until pass (max 2 passes)
+OAPE (or manual — see `{schema_root}/templates/code-generation-template.md`) → verify → code-generation evals → refine code until pass (max 2 passes)
 → present scorecard → user approves CODE → write task report → next task
 ```
 
@@ -43,7 +43,7 @@ OAPE (or manual — see `{schema_root}/templates/code-generation.md`) → verify
 
 7. **Task loop** (each pending task — **no user approval before eval gate completes**):
    - Compose `implementation/design-bundle.md` for **current Task ID only**
-   - Run **one** OAPE command (or manual agent work per `{schema_root}/templates/code-generation.md`)
+   - Run **one** OAPE command (or manual agent work per `{schema_root}/templates/code-generation-template.md`)
    - Verify task Acceptance criteria
    - **Code eval gate:** score fork code; refine until evals pass or 2 passes; write `eval-results/code-generation-<task-id>.yaml`
    - Present summary + code eval scorecard

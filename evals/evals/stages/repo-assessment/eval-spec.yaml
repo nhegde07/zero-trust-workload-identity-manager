@@ -1,14 +1,14 @@
 # Eval case schema — repo-assessment stage
 
 stage: repo-assessment
-template: evals/refined-templates/repo-assessment.md
+template: evals/refined-templates/repo-assessment-template.md
 artifact: repo-assessment.md
 stage_eval_file: evals/baseline/evals/repo-assessment/repo-assessment_eval.yaml
 
 # All cases for this stage live in ONE file: repo-assessment_eval.yaml
 consolidated_schema:
   stage: repo-assessment
-  template: evals/refined-templates/repo-assessment.md
+  template: evals/refined-templates/repo-assessment-template.md
   artifact: repo-assessment.md
   version: 1
   eval_count: <N>

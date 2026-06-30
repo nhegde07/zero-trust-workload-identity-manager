@@ -87,7 +87,7 @@ phases:
           - evals/baseline/refinement-changelog.md
       - id: refine-validation
         writes:
-          - evals/refined-templates/validation.md
+          - evals/refined-templates/validation-template.md
           - evals/outputs/eval-generation/validation-refinements.md
           - evals/outputs/eval-generation/refinement-patches/validation.md.patch
       - id: create-eval-cases
@@ -96,7 +96,7 @@ phases:
           evals/baseline/evals/<stage>/<stage>_eval.yaml
           (e.g. constitution_eval.yaml). Do not scatter per-case files.
           Then sync flat copies to schemas/openspec-agile-workflow/evals/<stage>_eval.yaml
-          with template: templates/<name>.md for forward /opsx-continue (artifact stages).
+          with template: templates/<name>-template.md for forward /opsx-continue (artifact stages).
           For code-generation: sync to schemas/.../evals/code-generation_eval.yaml
           (no template — scores fork code during /opsx-apply per task).
         writes:

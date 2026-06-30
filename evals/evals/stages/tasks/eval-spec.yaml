@@ -1,13 +1,13 @@
 # Eval case schema — tasks stage
 
 stage: tasks
-template: evals/refined-templates/tasks.md
+template: evals/refined-templates/tasks-template.md
 artifact: tasks.md
 stage_eval_file: evals/baseline/evals/tasks/tasks_eval.yaml
 
 consolidated_schema:
   stage: tasks
-  template: evals/refined-templates/tasks.md
+  template: evals/refined-templates/tasks-template.md
   artifact: tasks.md
   version: 1
   eval_count: <N>

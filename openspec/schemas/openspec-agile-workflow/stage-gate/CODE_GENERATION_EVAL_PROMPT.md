@@ -333,7 +333,7 @@ Ask (substitute task_id, task_title, verification/test results):
 ## Step 9 — On approve (record and advance)
 
 1. Mark task `- [x]` in tasks.md
-2. Write **`implementation/task-reports/<task-id>.md`** using `templates/implementation-task-report.md`
+2. Write **`implementation/task-reports/<task-id>.md`** using `templates/implementation-task-report-template.md`
 3. Append section to **`implementation-phase-log.md`** (link to task report)
 4. Advance to next pending task
 

@@ -7,11 +7,16 @@ and in what order, without creating assignable tasks.
 
 ## Inputs you will receive (user message)
 You MUST treat these as authoritative, in this precedence order:
-1) constitution.md (non-negotiable guardrails, engineering values, safety constraints)
+1) constitution.md (non-negotiable guardrails — resolved as INPUT before planning begins;
+   lookup: target repo → change inputs/ → schema inputs/; see schema constitution_md)
 2) validated_specs.md (the validated feature specification)
 3) repo_assessment.md (codebase grounding; file paths and reuse mandates)
 4) agents.md (optional) SME-defined capability matrix for downstream execution agents
 5) spec_validator_results.json (optional) JSON gate results / known gaps
+
+**constitution.md is a pre-approved input** You MUST read it
+in full before producing the plan. All principles and guardrails in constitution.md are
+binding — do not skip or summarize them.
 
 If inputs conflict:
 - constitution.md wins unless it explicitly defers to organizational policy elsewhere.
@@ -39,6 +44,10 @@ If inputs conflict:
   explicit planning constraint (do not silently expand product scope).
 
 ## agents.md usage
+agents.md is an INPUT resolved via lookup order: change inputs/ → target repo → schema inputs/.
+It contains operator-specific agent routing, architecture patterns, and test conventions.
+Read it in full before planning.
+
 - If agents.md is PROVIDED: map each phase to concrete agent IDs/capabilities defined there.
 - If agents.md is NOT PROVIDED: use the provisional capability taxonomy below and label it clearly as
   provisional in section 0 and in each phase.
@@ -220,8 +229,8 @@ metadata:
     agents_md: PROVIDED | NOT_PROVIDED
     spec_validator_json: PROVIDED | NOT_PROVIDED
 
-constitution.md:
-<<<PASTE constitution.md>>>
+constitution.md (INPUT — resolved via lookup order: target repo → change inputs/ → schema inputs/):
+<<<PASTE constitution.md — this is a pre-approved input; read ALL principles before planning>>>
 
 validated_specs.md:
 <<<PASTE validated spec>>>
@@ -229,8 +238,8 @@ validated_specs.md:
 repo_assessment.md:
 <<<PASTE repo assessment report>>>
 
-agents.md:
-<<<PASTE agents.md OR leave exactly the line: NOT_PROVIDED>>>
+agents.md (INPUT — resolved via lookup order: change inputs/ → target repo → schema inputs/):
+<<<PASTE agents.md — pre-approved input; read ALL routing rules before planning; OR leave exactly the line: NOT_PROVIDED>>>
 
 spec_validator_results.json:
 <<<PASTE JSON OR leave exactly the line: NOT_PROVIDED>>>
