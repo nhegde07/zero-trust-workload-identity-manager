@@ -1,7 +1,0 @@
-task_id: T5_1
-oape_command: manual
-score_percent: 100
-pass_count: 0
-total_count: 0
-refinement_rounds: 0
-notes: API field + CRD/bundle regeneration; ZTWIMSpecChangedPredicate fix

@@ -1,7 +1,0 @@
-task_id: T5_7
-oape_command: manual
-score_percent: 100
-pass_count: 0
-total_count: 0
-refinement_rounds: 0
-notes: Precedence unit tests + warning event helpers

@@ -1,7 +1,0 @@
-task_id: T6_1
-oape_command: manual
-score_percent: 100
-pass_count: 0
-total_count: 0
-refinement_rounds: 0
-notes: E2E compile verified; cluster run requires KUBECONFIG
