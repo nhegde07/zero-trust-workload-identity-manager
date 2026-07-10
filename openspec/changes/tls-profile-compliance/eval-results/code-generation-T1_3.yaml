@@ -1,0 +1,26 @@
+artifact_id: code-generation-T1_3
+task_id: T1_3
+change: tls-profile-compliance
+oape_command: manual
+evaluated_at: "2026-07-03T08:21:00Z"
+summary: "Added read-only APIServer RBAC via kubebuilder marker and make manifests"
+cases:
+  total: 0
+  passed: 0
+  failed: 0
+score_percent: 100
+refinement_rounds: 0
+verification:
+  - command: "make manifests"
+    exit_code: 0
+    status: pass
+  - command: "GOFLAGS=-mod=vendor go build ./pkg/client/..."
+    exit_code: 0
+    status: pass
+  - command: "GOFLAGS=-mod=vendor go vet ./pkg/client/..."
+    exit_code: 0
+    status: pass
+notes:
+  - "kubebuilder marker on pkg/client/client.go"
+  - "config/rbac/role.yaml: apiservers get/list/watch only"
+  - "No api/v1alpha1 source files modified by make manifests"

@@ -1,0 +1,26 @@
+artifact_id: code-generation-T1_4
+task_id: T1_4
+change: tls-profile-compliance
+oape_command: manual
+evaluated_at: "2026-07-03T08:23:00Z"
+summary: "APIServer registered in cacheResourceWithoutReqSelectors and informerResources"
+cases:
+  total: 0
+  passed: 0
+  failed: 0
+score_percent: 100
+refinement_rounds: 0
+verification:
+  - command: "GOFLAGS=-mod=vendor go build ./pkg/client/..."
+    exit_code: 0
+    status: pass
+  - command: "GOFLAGS=-mod=vendor go vet ./pkg/client/..."
+    exit_code: 0
+    status: pass
+  - command: "GOFLAGS=-mod=vendor go build ./..."
+    exit_code: 0
+    status: pass
+notes:
+  - "configv1.APIServer in cacheResourceWithoutReqSelectors and informerResources"
+  - "Cluster-scoped singleton; no label selector"
+  - "Skipped make test (repo-wide side effects; out of task scope)"

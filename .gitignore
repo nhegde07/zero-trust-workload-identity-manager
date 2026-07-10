@@ -38,6 +38,6 @@ dashboard/data/
 dashboard/.venv/
 dashboard/web/node_modules/
 dashboard/web/dist/
-openspec/__pycache__/
-openspec/telemetry/__pycache__/
+openspec/__pycache__
+openspec/telemetry/__pycache__
 openspec/telemetry/__init__.py

@@ -1,0 +1,22 @@
+artifact_id: code-generation-T1_5
+task_id: T1_5
+change: tls-profile-compliance
+oape_command: manual
+evaluated_at: "2026-07-03T08:25:00Z"
+summary: "Layer 2 TLS resolution helpers in pkg/controller/tls/tls.go"
+cases:
+  total: 0
+  passed: 0
+  failed: 0
+score_percent: 100
+refinement_rounds: 0
+verification:
+  - command: "GOFLAGS=-mod=vendor go build ./pkg/controller/tls/..."
+    exit_code: 0
+    status: pass
+  - command: "GOFLAGS=-mod=vendor go vet ./pkg/controller/tls/..."
+    exit_code: 0
+    status: pass
+notes:
+  - "Wraps controller-runtime-common GetTLSProfileSpec and FetchAPIServerTLSProfile"
+  - "Exports adherence gate, PQC precedence, and EvaluateOperandTLSInjection for Phase 3/5"

@@ -1,0 +1,41 @@
+artifact_id: plan
+change: tls-profile-compliance
+gate: stage_evals
+stage_eval_file: evals/plan_eval.yaml
+evaluated_at: "2026-07-02T22:00:00Z"
+refinement_applied: false
+refinement_round: 1
+
+note: "plan_eval.yaml has empty evals list — scored against template quality checklist"
+
+scores:
+  overall_score: 94
+  overall_pass: true
+  overall_status: PASS
+
+template_checklist:
+  sections_0_through_8: true
+  repo_grounded_reality_check: true
+  greenfield_not_false_delta: true
+  all_phases_use_template: true
+  target_files_from_repo_assessment: true
+  verification_matrix_complete: true
+  fr_p1_story_mapping: true
+  constitution_agent_routing: true
+  open_questions_complete: true
+  make_verify_test_commands: true
+
+phase_count: 7
+phases:
+  - "Phase 1: Foundation"
+  - "Phase 2: Operator Layer 1"
+  - "Phase 3: Layer 2 operand injection"
+  - "Phase 4: Upstream cross-repo"
+  - "Phase 5: requirePQKEM"
+  - "Phase 6: Conformance verification"
+  - "Phase 7: Future groups (deferred)"
+
+cases:
+  total: 0
+  passed: 0
+  failed: 0

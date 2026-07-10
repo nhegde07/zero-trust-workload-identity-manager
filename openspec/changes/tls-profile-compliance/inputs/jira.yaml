@@ -1,0 +1,29 @@
+# Spec source: ADR (not Jira ticket). Related OCPSTRAT initiatives tracked below.
+spec_source: adr
+adr_path: ADR-TLS-Compliance.md
+jira_key: null
+related_tickets:
+  - OCPSTRAT-2611  # Central TLS Consistency
+  - OCPSTRAT-3123  # TLS Group Preferences
+  - OCPSTRAT-3145  # Hybrid ML-KEM Support
+  - OCPSTRAT-2361
+
+target_repo: https://github.com/nhegde07/zero-trust-workload-identity-manager
+use_working_folder_as_repo: true
+working_folder_path: /home/nhegde/work/github.com/nhegde07/zero-trust-workload-identity-manager
+
+# Multi-repo scope — upstream operand patches for configurable TLS
+related_repos:
+  - name: spiffe-spire
+    url: https://github.com/spiffe/spire
+    role: upstream operand — configurable TLS on gRPC, federation, Prometheus, OIDC
+  - name: spiffe-spire-controller-manager
+    url: https://github.com/spiffe/spire-controller-manager
+    role: upstream operand — webhook TLS configuration
+
+created_at: "2026-07-02T00:00:00Z"
+updated_at: "2026-07-02T19:00:00Z"
+adr_revision_note: "Validation feedback applied — tlsAdherence terminology, Layer 2 injection trigger, OIDC operator vs upstream split"
+rebaseline_at: "2026-07-02T18:00:00Z"
+rebaseline_from: validation
+rebaseline_note: "Removed specs, repo-assessment, and downstream eval artifacts; regenerated validation.json from updated ADR"

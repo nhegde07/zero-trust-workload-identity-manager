@@ -1,0 +1,26 @@
+artifact_id: code-generation-T1_6
+task_id: T1_6
+change: tls-profile-compliance
+oape_command: manual
+evaluated_at: "2026-07-03T08:30:00Z"
+summary: "Table-driven unit tests for tls package adherence matrix and profile mapping"
+cases:
+  total: 0
+  passed: 0
+  failed: 0
+score_percent: 100
+refinement_rounds: 0
+verification:
+  - command: "GOFLAGS=-mod=vendor go build ./pkg/controller/tls/..."
+    exit_code: 0
+    status: pass
+  - command: "GOFLAGS=-mod=vendor go vet ./pkg/controller/tls/..."
+    exit_code: 0
+    status: pass
+  - command: "GOFLAGS=-mod=vendor go test ./pkg/controller/tls/... -v"
+    exit_code: 0
+    status: pass
+    test_count: 9
+notes:
+  - "Uses stubClient (client/fake not vendored)"
+  - "Covers FR-004 adherence gate, FR-014 default/fallback, precedence matrix"

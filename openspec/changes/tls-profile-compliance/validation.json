@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "ticket_id": "ADR-TLS-Compliance",
+    "doc_type": "enhancement",
+    "pass_threshold": 80,
+    "output_mode": "json_plus_summary",
+    "weights_applied": {
+      "completeness": 0.6,
+      "quality": 0.4
+    }
+  },
+  "validation_results": {
+    "completeness_score": 90,
+    "quality_score": 88,
+    "overall_score": 89,
+    "overall_status": "PASS",
+    "missing_elements": [
+      "User Personas: Actors are implied (cluster admin, platform operator, upstream contributor) but not listed as explicit personas with responsibilities",
+      "Acceptance Criteria: Verification scenarios are strong but lack Given/When/Then framing for operator metrics (:8443) and webhook endpoints specifically",
+      "Dependencies: Upstream SPIRE/controller-manager patch merge timeline, version pins, and Go version alignment (1.24+) are not stated as hard blockers"
+    ],
+    "quality_issues": [
+      {
+        "type": "Testability",
+        "quote": "TLS compliance validated extensively with OpenShift tls-scanner against all endpoints",
+        "suggestion": "Specify where tls-scanner runs (CI e2e, manual release gate, or both) and minimum profile matrix (Old/Intermediate/Modern/Custom) required per phase."
+      },
+      {
+        "type": "Sizing",
+        "quote": "Downstream Changes (ZTWIM Operator) plus Upstream Changes (SPIRE, SPIRE Controller Manager) across three repositories",
+        "suggestion": "Phased rollout mitigates sizing risk; specs stage should split operator vs upstream deliverables with explicit cross-repo task ownership."
+      }
+    ],
+    "blockers": [],
+    "non_blockers": [
+      "Add explicit user personas (cluster admin, ZTWIM operator maintainer, SPIRE upstream contributor)",
+      "Define tls-scanner execution environment and pass/fail thresholds per endpoint",
+      "Document warning event when requirePQKEM=true coexists with StrictAllComponents central profile (risk table item → acceptance criterion)",
+      "Phase 4 groups/TLSGroupPreferences dependency on openshift/api PR #2583 — track as future milestone with explicit defer criteria",
+      "Addressed in this revision: tlsAdherence terminology standardized; Layer 2 injection trigger explicit; OIDC operator ConfigMap vs upstream main.go split documented"
+    ]
+  }
+}
