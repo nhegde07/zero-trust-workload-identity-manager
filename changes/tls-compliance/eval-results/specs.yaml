@@ -1,0 +1,11 @@
+artifact_id: specs
+artifact_path: openspec/changes/tls-compliance/specs.md
+stage: specs
+stage_eval_file: null
+gate: skip
+scored_at: "2026-07-09T15:45:00+05:30"
+overall_score: null
+overall_pass: true
+refinement_applied: false
+notes: >-
+  Skip gate — no stage eval YAML. Manual quality review against template and validation.json gaps.

@@ -1,0 +1,30 @@
+artifact_id: validation
+artifact_path: openspec/changes/tls-compliance/validation.json
+stage: validation
+stage_eval_file: null
+gate: rubric_only
+scored_at: "2026-07-09T15:40:00+05:30"
+overall_score: 88
+overall_pass: true
+refinement_applied: false
+rubric_checks:
+  - id: completeness_pillars
+    score: 90
+    pass: true
+    failures: []
+  - id: quality_clarity
+    score: 86
+    pass: true
+    failures: []
+  - id: blockers_absent
+    score: 100
+    pass: true
+    failures: []
+  - id: json_schema_valid
+    score: 100
+    pass: true
+    failures: []
+notes: >-
+  Rubric-only gate. ADR-TLS-Compliance.md is a high-quality enhancement spec with
+  clear scope, precedence model, impacted files, verification plan, and non-goals.
+  Minor gaps: implicit persona, verification not in GWT format, upstream path ambiguity.

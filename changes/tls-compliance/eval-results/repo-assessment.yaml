@@ -1,0 +1,13 @@
+artifact_id: repo-assessment
+artifact_path: openspec/changes/tls-compliance/repo-assessment.md
+stage: repo-assessment
+stage_eval_file: evals/repo-assessment_eval.yaml
+gate: stage_evals
+scored_at: "2026-07-09T15:50:00+05:30"
+overall_score: 100
+overall_pass: true
+refinement_applied: false
+cases: []
+notes: >-
+  repo-assessment_eval.yaml defines evals: [] (empty). Rubric satisfied via template
+  self-check: §0–§12 complete, branch honesty (GREENFIELD), file paths cited from repo.
