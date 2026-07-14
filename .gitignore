@@ -41,3 +41,4 @@ dashboard/web/dist/
 openspec/__pycache__
 openspec/telemetry/__pycache__
 openspec/telemetry/__init__.py
+# ─── OpenSpec runtime artifacts (never commit) ───
