@@ -144,6 +144,12 @@ type ZeroTrustWorkloadIdentityManagerSpec struct {
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="bundleConfigMap is immutable and cannot be changed"
 	BundleConfigMap string `json:"bundleConfigMap"`
+
+	// requirePQKEM enables strict hybrid post-quantum key exchange (X25519MLKEM768) across SPIRE operands.
+	// When true, application-level PQC policy overrides central TLS profile injection (minTLSVersion, ciphers).
+	// Nil or false preserves the central TLS profile path when strict adherence is active.
+	// +optional
+	RequirePQKEM *bool `json:"requirePQKEM,omitempty"`
 }
 
 // CommonConfig has similar config required for all other APIs

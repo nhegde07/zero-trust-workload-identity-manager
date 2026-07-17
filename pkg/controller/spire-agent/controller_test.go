@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/client/fakes"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1405,7 +1406,7 @@ func TestReconcileConfigMap_AllScenarios(t *testing.T) {
 			}
 
 			statusMgr := status.NewManager(fakeClient)
-			_, err := reconciler.reconcileConfigMap(context.Background(), agent, statusMgr, ztwim, tt.createOnlyMode)
+			_, err := reconciler.reconcileConfigMap(context.Background(), agent, statusMgr, ztwim, tt.createOnlyMode, tlspkg.OperandTLSConfig{})
 
 			if tt.expectError && err == nil {
 				t.Fatal("Expected error but got nil")

@@ -340,7 +340,11 @@ catalog-push: ## Push a catalog image.
 
 ## verify the changes are working as expected.
 .PHONY: verify
-verify: vet fmt golangci-lint
+verify: vet fmt golangci-lint verify-tls-compliance-bundle
+
+.PHONY: verify-tls-compliance-bundle
+verify-tls-compliance-bundle:
+	hack/verify-tls-compliance-bundle.sh
 
 ## generate the vendor code
 .PHONY: vendor

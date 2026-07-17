@@ -532,7 +532,7 @@ var _ = Describe("Zero Trust Workload Identity Manager", Ordered, func() {
 				By("Verifying bundle certificates are CAs with CertSign KeyUsage")
 				for i, ca := range bundleCerts {
 					Expect(ca.IsCA).To(BeTrue(), "bundle certificate [%d] must be a CA", i)
-					Expect(ca.KeyUsage & x509.KeyUsageCertSign).NotTo(BeZero(),
+					Expect(ca.KeyUsage&x509.KeyUsageCertSign).NotTo(BeZero(),
 						"bundle certificate [%d] KeyUsage must include CertSign", i)
 					fmt.Fprintf(GinkgoWriter, "bundle cert [%d]: Subject=%s, IsCA=%v, KeyUsage=%d\n",
 						i, ca.Subject, ca.IsCA, ca.KeyUsage)

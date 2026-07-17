@@ -1197,10 +1197,10 @@ spec:
                     x-kubernetes-validations:
                     - message: hostCertBasePath is required when type is 'hostCert'
                       rule: self.type != 'hostCert' || (has(self.hostCertBasePath)
-                        && self.hostCertBasePath != '')
+                        && self.hostCertBasePath != ”)
                     - message: hostCertFileName is required when type is 'hostCert'
                       rule: self.type != 'hostCert' || (has(self.hostCertFileName)
-                        && self.hostCertFileName != '')
+                        && self.hostCertFileName != ”)
                 type: object
             type: object
           status:

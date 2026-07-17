@@ -17,17 +17,21 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
 	"os"
 	"path/filepath"
 
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	commontls "github.com/openshift/controller-runtime-common/pkg/tls"
 	operatorv1 "github.com/operator-framework/api/pkg/operators/v1"
 
 	"k8s.io/klog/v2/textlogger"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -39,6 +43,7 @@ import (
 
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 
 	operatoropenshiftiov1alpha1 "github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	customClient "github.com/openshift/zero-trust-workload-identity-manager/pkg/client"
@@ -78,6 +83,8 @@ func init() {
 	utilruntime.Must(operatoropenshiftiov1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
+
+// +kubebuilder:rbac:groups=config.openshift.io,resources=apiservers,verbs=get;list;watch
 
 func main() {
 	var (
@@ -121,6 +128,23 @@ func main() {
 		os.Exit(1)
 	}
 	setupLog.Info("Operator namespace configured", "namespace", operatorNamespace)
+
+	config := ctrl.GetConfigOrDie()
+
+	// Increase QPS and Burst to allow more concurrent API calls
+	config.QPS = 50    // Default is usually 5, increase as needed
+	config.Burst = 100 // Default is usually 10, increase as needed
+
+	registerSchemes()
+
+	initialProfile, initialAdherence := resolveInitialTLSConfig(config)
+
+	profileTLSOpt, unsupportedCiphers := commontls.NewTLSConfigFromProfile(initialProfile)
+	if len(unsupportedCiphers) > 0 {
+		setupLog.Info("TLS profile contains ciphers not supported by library-go", "unsupportedCiphers", unsupportedCiphers)
+	}
+	metricsTLSOpts = append(metricsTLSOpts, profileTLSOpt)
+	webhookTLSOpts = append(webhookTLSOpts, profileTLSOpt)
 
 	if !enableHTTP2 {
 		// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -184,28 +208,6 @@ func main() {
 			c.ClientCAs = certPool
 		})
 		metricsServerOptions.TLSOpts = metricsTLSOpts
-	}
-	config := ctrl.GetConfigOrDie()
-
-	// Increase QPS and Burst to allow more concurrent API calls
-	config.QPS = 50    // Default is usually 5, increase as needed
-	config.Burst = 100 // Default is usually 10, increase as needed
-
-	// Add OpenShift SCC scheme
-	if err := securityv1.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add securityv1 scheme")
-	}
-	if err := ctrlmgr.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add spiffev1alpha1 scheme")
-	}
-
-	if err := routev1.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add routev1 scheme")
-	}
-
-	// Add OperatorCondition scheme for OLM integration
-	if err := operatorv1.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add operatorv1 scheme")
 	}
 
 	// Create unified cache builder to prevent race conditions between manager and reconciler caches
@@ -277,11 +279,77 @@ func main() {
 		exitOnError(err, "unable to set up ready check")
 	}
 
+	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
+	defer cancel()
+
+	profileWatcher := &commontls.SecurityProfileWatcher{
+		Client:                    mgr.GetClient(),
+		InitialTLSProfileSpec:     initialProfile,
+		InitialTLSAdherencePolicy: initialAdherence,
+		OnProfileChange: func(_ context.Context, oldProfile, newProfile configv1.TLSProfileSpec) {
+			setupLog.Info("APIServer TLS security profile changed, shutting down operator to reload TLS configuration",
+				"oldMinTLSVersion", oldProfile.MinTLSVersion,
+				"newMinTLSVersion", newProfile.MinTLSVersion)
+			cancel()
+		},
+		OnAdherencePolicyChange: func(_ context.Context, oldPolicy, newPolicy configv1.TLSAdherencePolicy) {
+			setupLog.Info("APIServer TLS adherence policy changed, shutting down operator to reload TLS configuration",
+				"oldPolicy", oldPolicy,
+				"newPolicy", newPolicy)
+			cancel()
+		},
+	}
+	exitOnError(profileWatcher.SetupWithManager(mgr), "unable to set up TLS security profile watcher")
+
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
-	err = mgr.Start(ctrl.SetupSignalHandler())
+	err = mgr.Start(ctx)
 	exitOnError(err, "problem running manager")
+}
+
+func registerSchemes() {
+	if err := securityv1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add securityv1 scheme")
+	}
+	if err := ctrlmgr.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add spiffev1alpha1 scheme")
+	}
+	if err := routev1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add routev1 scheme")
+	}
+	if err := operatorv1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add operatorv1 scheme")
+	}
+	if err := configv1.Install(scheme); err != nil {
+		exitOnError(err, "unable to add configv1 scheme")
+	}
+}
+
+func resolveInitialTLSConfig(config *rest.Config) (configv1.TLSProfileSpec, configv1.TLSAdherencePolicy) {
+	startupClient, err := ctrlclient.New(config, ctrlclient.Options{Scheme: scheme})
+	exitOnError(err, "unable to create startup client for TLS profile resolution")
+
+	ctx := context.Background()
+
+	profile, err := commontls.FetchAPIServerTLSProfile(ctx, startupClient)
+	if err != nil {
+		setupLog.Info("failed to fetch APIServer TLS profile, using Intermediate fallback", "error", err)
+		profile, err = commontls.GetTLSProfileSpec(nil)
+		exitOnError(err, "unable to resolve Intermediate TLS profile fallback")
+	}
+
+	adherence, err := commontls.FetchAPIServerTLSAdherencePolicy(ctx, startupClient)
+	if err != nil {
+		setupLog.Info("failed to fetch APIServer TLS adherence policy", "error", err)
+		adherence = configv1.TLSAdherencePolicyNoOpinion
+	}
+
+	setupLog.Info("resolved cluster TLS configuration for operator startup",
+		"minTLSVersion", profile.MinTLSVersion,
+		"tlsAdherence", adherence)
+
+	return profile, adherence
 }
 
 func exitOnError(err error, logMessage string) {

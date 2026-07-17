@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/client/fakes"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1591,7 +1592,7 @@ func TestReconcileSpireServerConfigMap_ErrorScenarios(t *testing.T) {
 			}
 
 			statusMgr := status.NewManager(fakeClient)
-			_, err := reconciler.reconcileSpireServerConfigMap(context.Background(), server, statusMgr, ztwim, false)
+			_, err := reconciler.reconcileSpireServerConfigMap(context.Background(), server, statusMgr, ztwim, false, tlspkg.OperandTLSConfig{})
 
 			if tt.expectError && err == nil {
 				t.Fatal("Expected error but got nil")

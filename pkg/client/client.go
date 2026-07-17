@@ -26,6 +26,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
@@ -58,6 +59,7 @@ var (
 		&v1alpha1.SpireServer{},
 		&v1alpha1.SpireOIDCDiscoveryProvider{},
 		&operatorv1.OperatorCondition{},
+		&configv1.APIServer{},
 	}
 
 	informerResources = []client.Object{
@@ -81,6 +83,7 @@ var (
 		&routev1.Route{},
 		&spiffev1alpha1.ClusterSPIFFEID{},
 		&operatorv1.OperatorCondition{},
+		&configv1.APIServer{},
 	}
 )
 

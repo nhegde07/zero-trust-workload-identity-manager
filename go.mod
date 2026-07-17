@@ -11,6 +11,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/openshift/api v0.0.0-20260406193844-f50e695cb194
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
+	github.com/openshift/controller-runtime-common v0.0.0-20260428152732-64ee174f5e2e
 	github.com/operator-framework/api v0.27.0
 	github.com/spiffe/spire-controller-manager v0.6.4
 	github.com/stretchr/testify v1.11.1
@@ -19,8 +20,8 @@ require (
 	k8s.io/apimachinery v0.35.3
 	k8s.io/client-go v0.35.3
 	k8s.io/kubernetes v1.35.3
-	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
-	sigs.k8s.io/controller-runtime v0.22.4
+	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
+	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250308055145-5fe7bb3edc86
 	sigs.k8s.io/controller-tools v0.16.1
 	sigs.k8s.io/kustomize/kustomize/v5 v5.7.1
@@ -41,6 +42,7 @@ require (
 	github.com/go-openapi/swag/typeutils v0.25.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/openshift/library-go v0.0.0-20260213153706-03f1709971c5 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
@@ -48,7 +50,7 @@ require (
 	k8s.io/controller-manager v0.35.3 // indirect
 	k8s.io/kubelet v0.32.3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 )
 
 require (
@@ -294,3 +296,5 @@ require (
 )
 
 replace github.com/tdakkota/asciicheck => github.com/golangci/asciicheck v0.2.0
+
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.4

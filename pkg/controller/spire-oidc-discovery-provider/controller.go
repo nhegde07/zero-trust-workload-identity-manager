@@ -31,6 +31,7 @@ import (
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	customClient "github.com/openshift/zero-trust-workload-identity-manager/pkg/client"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 )
 
@@ -127,6 +128,16 @@ func (r *SpireOidcDiscoveryProviderReconciler) Reconcile(ctx context.Context, re
 	// Handle create-only mode
 	createOnlyMode := r.handleCreateOnlyMode(&oidcDiscoveryProviderConfig, statusMgr)
 
+	effectiveTLS, err := tlspkg.ResolveEffectiveTLSConfig(ctx, r.ctrlClient, &ztwim)
+	if err != nil {
+		r.log.Error(err, "failed to resolve effective TLS config")
+		statusMgr.AddCondition(v1alpha1.Ready, v1alpha1.ReasonFailed,
+			fmt.Sprintf("Failed to resolve cluster TLS profile: %v", err),
+			metav1.ConditionFalse)
+		return ctrl.Result{}, err
+	}
+	operandTLS := tlspkg.ToOperandTLSConfig(effectiveTLS)
+
 	// Validate configuration
 	if err := r.validateConfiguration(ctx, &oidcDiscoveryProviderConfig, statusMgr); err != nil {
 		return ctrl.Result{}, nil
@@ -147,7 +158,7 @@ func (r *SpireOidcDiscoveryProviderReconciler) Reconcile(ctx context.Context, re
 	}
 
 	// Reconcile ConfigMap
-	configHash, err := r.reconcileConfigMap(ctx, &oidcDiscoveryProviderConfig, statusMgr, &ztwim, createOnlyMode)
+	configHash, err := r.reconcileConfigMap(ctx, &oidcDiscoveryProviderConfig, statusMgr, &ztwim, createOnlyMode, operandTLS)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

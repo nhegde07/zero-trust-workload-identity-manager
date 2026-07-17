@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/client/fakes"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -90,7 +92,7 @@ func TestGenerateSpireServerConfigMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cm, err := generateSpireServerConfigMap(tt.config, tt.ztwim)
+			cm, err := generateSpireServerConfigMap(tt.config, tt.ztwim, tlspkg.OperandTLSConfig{})
 
 			// Check error expectations
 			if tt.expectError {
@@ -167,7 +169,7 @@ func TestGenerateServerConfMap(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(validConfig, validZTWIM)
+	confMap := generateServerConfMap(validConfig, validZTWIM, tlspkg.OperandTLSConfig{})
 
 	// Test server section
 	server, ok := confMap["server"].(map[string]interface{})
@@ -311,7 +313,7 @@ func TestGenerateServerConfMapTTLFields(t *testing.T) {
 				},
 			}
 
-			confMap := generateServerConfMap(config, validZTWIM)
+			confMap := generateServerConfMap(config, validZTWIM, tlspkg.OperandTLSConfig{})
 
 			server, ok := confMap["server"].(map[string]interface{})
 			if !ok {
@@ -350,7 +352,7 @@ func TestGenerateSpireServerConfigMapWithTTLFields(t *testing.T) {
 		},
 	}
 
-	cm, err := generateSpireServerConfigMap(config, validZTWIM)
+	cm, err := generateSpireServerConfigMap(config, validZTWIM, tlspkg.OperandTLSConfig{})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -570,7 +572,7 @@ func TestGenerateSpireControllerManagerConfigYaml(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			yamlStr, err := generateSpireControllerManagerConfigYaml(tt.config, tt.ztwim)
+			yamlStr, err := generateSpireControllerManagerConfigYaml(tt.config, tt.ztwim, tlspkg.OperandTLSConfig{})
 
 			// Check error expectations
 			if tt.expectError {
@@ -948,7 +950,7 @@ func TestGenerateServerConfMapWithKeyTypes(t *testing.T) {
 				},
 			}
 
-			confMap := generateServerConfMap(config, validZTWIM)
+			confMap := generateServerConfMap(config, validZTWIM, tlspkg.OperandTLSConfig{})
 
 			// Get server section
 			server, ok := confMap["server"].(map[string]interface{})
@@ -1026,7 +1028,7 @@ func TestGenerateSpireServerConfigMapWithKeyTypes(t *testing.T) {
 				},
 			}
 
-			cm, err := generateSpireServerConfigMap(config, validZTWIM)
+			cm, err := generateSpireServerConfigMap(config, validZTWIM, tlspkg.OperandTLSConfig{})
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -1142,7 +1144,7 @@ func TestGenerateFederationConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			federationConf := generateFederationConfig(tt.federation)
+			federationConf := generateFederationConfig(tt.federation, tlspkg.OperandTLSConfig{})
 
 			// Check bundle_endpoint exists
 			if tt.checkFields["bundle_endpoint_exists"].(bool) {
@@ -1243,7 +1245,7 @@ func TestGenerateBundleEndpointConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			endpointConfig := generateBundleEndpointConfig(tt.bundleEndpoint)
+			endpointConfig := generateBundleEndpointConfig(tt.bundleEndpoint, tlspkg.OperandTLSConfig{})
 
 			// Check port
 			if port, ok := endpointConfig["port"].(int); !ok || port != tt.expectedPort {
@@ -1291,7 +1293,7 @@ func TestGenerateFederationConfigWithFederatesWith(t *testing.T) {
 		},
 	}
 
-	federationConf := generateFederationConfig(federation)
+	federationConf := generateFederationConfig(federation, tlspkg.OperandTLSConfig{})
 
 	// Check federates_with exists and has correct entries
 	federatesWith, exists := federationConf["federates_with"]
@@ -1495,7 +1497,7 @@ func TestReconcileSpireServerConfigMap(t *testing.T) {
 			}
 			statusMgr := status.NewManager(fakeClient)
 
-			hash, err := reconciler.reconcileSpireServerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode)
+			hash, err := reconciler.reconcileSpireServerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode, tlspkg.OperandTLSConfig{})
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
@@ -1629,7 +1631,7 @@ func TestReconcileSpireControllerManagerConfigMap(t *testing.T) {
 			ztwim := createTestZTWIM()
 			statusMgr := status.NewManager(fakeClient)
 
-			hash, err := reconciler.reconcileSpireControllerManagerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode)
+			hash, err := reconciler.reconcileSpireControllerManagerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode, tlspkg.OperandTLSConfig{})
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
@@ -1797,7 +1799,7 @@ func TestGenerateServerConfMap_WithCertManagerUpstreamAuthority(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim)
+	confMap := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
 
 	plugins, ok := confMap["plugins"].(map[string]interface{})
 	if !ok {
@@ -1855,7 +1857,7 @@ func TestGenerateServerConfMap_WithVaultUpstreamAuthority(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim)
+	confMap := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
 
 	plugins, ok := confMap["plugins"].(map[string]interface{})
 	if !ok {
@@ -1912,7 +1914,7 @@ func TestGenerateServerConfMap_WithoutUpstreamAuthority(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim)
+	confMap := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
 
 	plugins, ok := confMap["plugins"].(map[string]interface{})
 	if !ok {
@@ -1947,7 +1949,7 @@ func TestGenerateServerConfMap_VaultWithCACert(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim)
+	confMap := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
 
 	plugins := confMap["plugins"].(map[string]interface{})
 	ua := plugins["UpstreamAuthority"].([]map[string]interface{})
@@ -1979,7 +1981,7 @@ func TestGenerateServerConfMap_VaultWithNamespace(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim)
+	confMap := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
 
 	plugins := confMap["plugins"].(map[string]interface{})
 	ua := plugins["UpstreamAuthority"].([]map[string]interface{})
@@ -2008,7 +2010,7 @@ func TestGenerateServerConfMap_CertManagerDefaults(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim)
+	confMap := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
 
 	plugins := confMap["plugins"].(map[string]interface{})
 	ua := plugins["UpstreamAuthority"].([]map[string]interface{})
@@ -2020,5 +2022,134 @@ func TestGenerateServerConfMap_CertManagerDefaults(t *testing.T) {
 	}
 	if pd["issuer_group"] != "cert-manager.io" {
 		t.Errorf("Expected default issuer_group %q, got %v", "cert-manager.io", pd["issuer_group"])
+	}
+}
+
+func TestGenerateServerConfMapTLSInjection(t *testing.T) {
+	config := createValidConfig()
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain:     "example.org",
+			BundleConfigMap: "spire-bundle",
+			ClusterName:     "test-cluster",
+		},
+	}
+
+	baseline := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
+	baselineJSON, err := marshalToJSON(baseline)
+	if err != nil {
+		t.Fatalf("marshal baseline: %v", err)
+	}
+	baselineHash := generateConfigHash(baselineJSON)
+
+	intermediate := *configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+	injected := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{
+		Inject:       true,
+		MinVersion:   intermediate.MinTLSVersion,
+		CipherSuites: intermediate.Ciphers,
+	})
+	if injected[tlspkg.SPIREConfigKeyMinTLSVersion] != "1.2" {
+		t.Fatalf("expected minTLSVersion 1.2, got %v", injected[tlspkg.SPIREConfigKeyMinTLSVersion])
+	}
+	if _, ok := injected[tlspkg.SPIREConfigKeyCipherSuites]; !ok {
+		t.Fatal("expected cipherSuites in server config")
+	}
+	telemetry := injected["telemetry"].(map[string]interface{})
+	prom := telemetry["Prometheus"].(map[string]interface{})
+	if prom[tlspkg.SPIREConfigKeyMinTLSVersion] != "1.2" {
+		t.Fatal("expected TLS injection in Prometheus telemetry block")
+	}
+
+	injectedJSON, err := marshalToJSON(injected)
+	if err != nil {
+		t.Fatalf("marshal injected: %v", err)
+	}
+	if generateConfigHash(injectedJSON) == baselineHash {
+		t.Fatal("expected config hash to change when TLS settings are injected")
+	}
+}
+
+func TestGenerateControllerManagerConfigTLSInjection(t *testing.T) {
+	config := createValidConfig()
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain:     "example.org",
+			BundleConfigMap: "spire-bundle",
+			ClusterName:     "test-cluster",
+		},
+	}
+
+	intermediate := *configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+	cmConfig, err := generateControllerManagerConfig(config, ztwim, tlspkg.OperandTLSConfig{
+		Inject:       true,
+		MinVersion:   intermediate.MinTLSVersion,
+		CipherSuites: intermediate.Ciphers,
+	})
+	if err != nil {
+		t.Fatalf("generateControllerManagerConfig() error = %v", err)
+	}
+	if cmConfig.TLSMinVersion != "1.2" {
+		t.Fatalf("TLSMinVersion = %q, want 1.2", cmConfig.TLSMinVersion)
+	}
+	if len(cmConfig.TLSCipherSuites) != len(intermediate.Ciphers) {
+		t.Fatalf("TLSCipherSuites len = %d, want %d", len(cmConfig.TLSCipherSuites), len(intermediate.Ciphers))
+	}
+
+	modern := *configv1.TLSProfiles[configv1.TLSProfileModernType]
+	modernConfig, err := generateControllerManagerConfig(config, ztwim, tlspkg.OperandTLSConfig{
+		Inject:       true,
+		MinVersion:   modern.MinTLSVersion,
+		CipherSuites: modern.Ciphers,
+	})
+	if err != nil {
+		t.Fatalf("generateControllerManagerConfig(modern) error = %v", err)
+	}
+	if modernConfig.TLSMinVersion != "1.3" {
+		t.Fatalf("TLSMinVersion = %q, want 1.3", modernConfig.TLSMinVersion)
+	}
+	if len(modernConfig.TLSCipherSuites) != 0 {
+		t.Fatalf("expected no cipher suites for TLS 1.3, got %d", len(modernConfig.TLSCipherSuites))
+	}
+}
+
+func TestGenerateServerConfMapPQCInjection(t *testing.T) {
+	config := createValidConfig()
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain:     "example.org",
+			BundleConfigMap: "spire-bundle",
+			ClusterName:     "test-cluster",
+		},
+	}
+
+	baseline := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{})
+	baselineJSON, err := marshalToJSON(baseline)
+	if err != nil {
+		t.Fatalf("marshal baseline: %v", err)
+	}
+
+	pqc := generateServerConfMap(config, ztwim, tlspkg.OperandTLSConfig{RequirePQKEM: true})
+	experimental, ok := pqc[tlspkg.SPIREConfigKeyExperimental].(map[string]interface{})
+	if !ok || experimental[tlspkg.SPIREConfigKeyRequirePQKEM] != true {
+		t.Fatal("expected experimental require_pq_kem in server config")
+	}
+	if _, ok := pqc[tlspkg.SPIREConfigKeyMinTLSVersion]; ok {
+		t.Fatal("expected no central TLS keys when PQC active")
+	}
+
+	pqcJSON, err := marshalToJSON(pqc)
+	if err != nil {
+		t.Fatalf("marshal pqc: %v", err)
+	}
+	if generateConfigHash(pqcJSON) == generateConfigHash(baselineJSON) {
+		t.Fatal("expected config hash to change when PQC is enabled")
+	}
+
+	pqcCM, err := generateControllerManagerConfig(config, ztwim, tlspkg.OperandTLSConfig{RequirePQKEM: true})
+	if err != nil {
+		t.Fatalf("generateControllerManagerConfig() error = %v", err)
+	}
+	if !pqcCM.RequirePQKEM {
+		t.Fatal("expected requirePQKEM in controller-manager config")
 	}
 }

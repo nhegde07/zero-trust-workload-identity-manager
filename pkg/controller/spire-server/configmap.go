@@ -20,6 +20,7 @@ import (
 
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 	spiffev1alpha "github.com/spiffe/spire-controller-manager/api/v1alpha1"
 )
@@ -49,11 +50,14 @@ type ControllerManagerConfigYAML struct {
 	APIVersion                            string            `json:"apiVersion"`
 	Metadata                              metav1.ObjectMeta `json:"metadata"`
 	spiffev1alpha.ControllerManagerConfig `json:",inline"`
+	TLSMinVersion                         string   `json:"tlsMinVersion,omitempty"`
+	TLSCipherSuites                       []string `json:"tlsCipherSuites,omitempty"`
+	RequirePQKEM                          bool     `json:"requirePQKEM,omitempty"`
 }
 
 // reconcileSpireServerConfigMap reconciles the Spire Server ConfigMap
-func (r *SpireServerReconciler) reconcileSpireServerConfigMap(ctx context.Context, server *v1alpha1.SpireServer, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, createOnlyMode bool) (string, error) {
-	spireServerConfigMap, err := generateSpireServerConfigMap(&server.Spec, ztwim)
+func (r *SpireServerReconciler) reconcileSpireServerConfigMap(ctx context.Context, server *v1alpha1.SpireServer, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, createOnlyMode bool, operandCfg tlspkg.OperandTLSConfig) (string, error) {
+	spireServerConfigMap, err := generateSpireServerConfigMap(&server.Spec, ztwim, operandCfg)
 	if err != nil {
 		r.log.Error(err, "failed to generate spire server config map")
 		statusMgr.AddCondition(ServerConfigMapAvailable, "SpireServerConfigMapGenerationFailed",
@@ -111,7 +115,7 @@ func (r *SpireServerReconciler) reconcileSpireServerConfigMap(ctx context.Contex
 		metav1.ConditionTrue)
 
 	// Generate config hash
-	spireServerConfJSON, err := marshalToJSON(generateServerConfMap(&server.Spec, ztwim))
+	spireServerConfJSON, err := marshalToJSON(generateServerConfMap(&server.Spec, ztwim, operandCfg))
 	if err != nil {
 		r.log.Error(err, "failed to marshal spire server config map to JSON")
 		return "", err
@@ -121,8 +125,8 @@ func (r *SpireServerReconciler) reconcileSpireServerConfigMap(ctx context.Contex
 }
 
 // reconcileSpireControllerManagerConfigMap reconciles the Spire Controller Manager ConfigMap
-func (r *SpireServerReconciler) reconcileSpireControllerManagerConfigMap(ctx context.Context, server *v1alpha1.SpireServer, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, createOnlyMode bool) (string, error) {
-	spireControllerManagerConfig, err := generateSpireControllerManagerConfigYaml(&server.Spec, ztwim)
+func (r *SpireServerReconciler) reconcileSpireControllerManagerConfigMap(ctx context.Context, server *v1alpha1.SpireServer, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, createOnlyMode bool, operandCfg tlspkg.OperandTLSConfig) (string, error) {
+	spireControllerManagerConfig, err := generateSpireControllerManagerConfigYaml(&server.Spec, ztwim, operandCfg)
 	if err != nil {
 		r.log.Error(err, "Failed to generate spire controller manager config")
 		statusMgr.AddCondition(ControllerManagerConfigAvailable, "SpireControllerManagerConfigMapGenerationFailed",
@@ -220,7 +224,7 @@ func (r *SpireServerReconciler) reconcileSpireBundleConfigMap(ctx context.Contex
 }
 
 // generateSpireServerConfigMap generates the spire-server ConfigMap
-func generateSpireServerConfigMap(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager) (*corev1.ConfigMap, error) {
+func generateSpireServerConfigMap(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, operandCfg tlspkg.OperandTLSConfig) (*corev1.ConfigMap, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config is nil")
 	}
@@ -230,7 +234,7 @@ func generateSpireServerConfigMap(config *v1alpha1.SpireServerSpec, ztwim *v1alp
 	if ztwim.Spec.BundleConfigMap == "" {
 		return nil, fmt.Errorf("bundle configmap is empty")
 	}
-	confMap := generateServerConfMap(config, ztwim)
+	confMap := generateServerConfMap(config, ztwim, operandCfg)
 	confJSON, err := marshalToJSON(confMap)
 	if err != nil {
 		return nil, err
@@ -251,7 +255,7 @@ func generateSpireServerConfigMap(config *v1alpha1.SpireServerSpec, ztwim *v1alp
 }
 
 // generateServerConfMap builds the server.conf structure as a Go map
-func generateServerConfMap(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager) map[string]interface{} {
+func generateServerConfMap(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, operandCfg tlspkg.OperandTLSConfig) map[string]interface{} {
 	// Build the server config
 	serverConfig := map[string]interface{}{
 		"audit_log_enabled": false,
@@ -348,7 +352,7 @@ func generateServerConfMap(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.Zer
 	// Add federation configuration if present (inside server section)
 	if config.Federation != nil {
 		serverSection := configMap["server"].(map[string]interface{})
-		serverSection["federation"] = generateFederationConfig(config.Federation)
+		serverSection["federation"] = generateFederationConfig(config.Federation, operandCfg)
 	}
 
 	if config.UpstreamAuthority != nil {
@@ -356,6 +360,11 @@ func generateServerConfMap(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.Zer
 			plugins := configMap["plugins"].(map[string]interface{})
 			plugins[pluginNameUpstreamAuthority] = uaPlugin
 		}
+	}
+
+	tlspkg.ApplyOperandTLSSettings(configMap, operandCfg)
+	if telemetry, ok := configMap["telemetry"].(map[string]interface{}); ok {
+		tlspkg.ApplyOperandTLSSettingsToPrometheus(telemetry, operandCfg)
 	}
 
 	return configMap
@@ -437,9 +446,9 @@ func buildVaultPluginData(v *v1alpha1.UpstreamAuthorityVault) map[string]interfa
 }
 
 // generateFederationConfig generates the federation configuration for SPIRE server
-func generateFederationConfig(federation *v1alpha1.FederationConfig) map[string]interface{} {
+func generateFederationConfig(federation *v1alpha1.FederationConfig, operandCfg tlspkg.OperandTLSConfig) map[string]interface{} {
 	federationConf := map[string]interface{}{
-		"bundle_endpoint": generateBundleEndpointConfig(&federation.BundleEndpoint),
+		"bundle_endpoint": generateBundleEndpointConfig(&federation.BundleEndpoint, operandCfg),
 	}
 
 	// Add federates_with configuration if present
@@ -473,7 +482,7 @@ func generateFederationConfig(federation *v1alpha1.FederationConfig) map[string]
 }
 
 // generateBundleEndpointConfig generates the bundle endpoint configuration
-func generateBundleEndpointConfig(bundleEndpoint *v1alpha1.BundleEndpointConfig) map[string]interface{} {
+func generateBundleEndpointConfig(bundleEndpoint *v1alpha1.BundleEndpointConfig, operandCfg tlspkg.OperandTLSConfig) map[string]interface{} {
 	endpointConfig := map[string]interface{}{
 		"address": "0.0.0.0",
 		"port":    8443,
@@ -528,6 +537,8 @@ func generateBundleEndpointConfig(bundleEndpoint *v1alpha1.BundleEndpointConfig)
 			"https_web": httpsWebProfile,
 		}
 	}
+
+	tlspkg.ApplyOperandTLSSettings(endpointConfig, operandCfg)
 
 	return endpointConfig
 }
@@ -586,14 +597,14 @@ func buildDataStorePluginData(datastore v1alpha1.DataStore) map[string]interface
 	return pluginData
 }
 
-func generateControllerManagerConfig(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager) (*ControllerManagerConfigYAML, error) {
+func generateControllerManagerConfig(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, operandCfg tlspkg.OperandTLSConfig) (*ControllerManagerConfigYAML, error) {
 	if ztwim.Spec.TrustDomain == "" {
 		return nil, errors.New("trust_domain is empty")
 	}
 	if ztwim.Spec.ClusterName == "" {
 		return nil, errors.New("cluster name is empty")
 	}
-	return &ControllerManagerConfigYAML{
+	cmConfig := &ControllerManagerConfigYAML{
 		Kind:       "ControllerManagerConfig",
 		APIVersion: "spire.spiffe.io/v1alpha1",
 		Metadata: metav1.ObjectMeta{
@@ -630,11 +641,20 @@ func generateControllerManagerConfig(config *v1alpha1.SpireServerSpec, ztwim *v1
 				"openshift-*",
 			},
 		},
-	}, nil
+	}
+	if operandCfg.RequirePQKEM {
+		cmConfig.RequirePQKEM = true
+	} else if operandCfg.Inject {
+		cmConfig.TLSMinVersion = tlspkg.SPIREMinTLSVersion(operandCfg.MinVersion)
+		if tlspkg.ShouldInjectCipherSuites(operandCfg.MinVersion) {
+			cmConfig.TLSCipherSuites = append([]string(nil), operandCfg.CipherSuites...)
+		}
+	}
+	return cmConfig, nil
 }
 
-func generateSpireControllerManagerConfigYaml(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager) (string, error) {
-	controllerManagerConfig, err := generateControllerManagerConfig(config, ztwim)
+func generateSpireControllerManagerConfigYaml(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, operandCfg tlspkg.OperandTLSConfig) (string, error) {
+	controllerManagerConfig, err := generateControllerManagerConfig(config, ztwim, operandCfg)
 	if err != nil {
 		return "", err
 	}

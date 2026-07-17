@@ -1086,5 +1086,3 @@ func SetupAttestationTest(ctx context.Context, k8sClient client.Client, clientse
 		ClusterSPIFFEIDName: cspiffeID.Name,
 	}
 }
-
-

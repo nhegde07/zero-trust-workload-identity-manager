@@ -31,6 +31,7 @@ import (
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	customClient "github.com/openshift/zero-trust-workload-identity-manager/pkg/client"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 )
 
@@ -128,6 +129,17 @@ func (r *SpireServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Handle create-only mode
 	createOnlyMode := r.handleCreateOnlyMode(&server, statusMgr)
 
+	effectiveTLS, err := tlspkg.ResolveEffectiveTLSConfig(ctx, r.ctrlClient, &ztwim)
+	if err != nil {
+		r.log.Error(err, "failed to resolve effective TLS config")
+		statusMgr.AddCondition(v1alpha1.Ready, v1alpha1.ReasonFailed,
+			fmt.Sprintf("Failed to resolve cluster TLS profile: %v", err),
+			metav1.ConditionFalse)
+		return ctrl.Result{}, err
+	}
+	operandTLS := tlspkg.ToOperandTLSConfig(effectiveTLS)
+	tlspkg.RecordPQKEStrictAdherenceWarning(r.eventRecorder, &ztwim, effectiveTLS)
+
 	// Validate configuration
 	if err := r.validateConfiguration(ctx, &server, statusMgr, &ztwim); err != nil {
 		return ctrl.Result{}, nil
@@ -159,13 +171,13 @@ func (r *SpireServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Reconcile ConfigMaps
-	spireServerConfigMapHash, err := r.reconcileSpireServerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode)
+	spireServerConfigMapHash, err := r.reconcileSpireServerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode, operandTLS)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Reconcile Spire Controller Manager ConfigMap
-	spireControllerManagerConfigMapHash, err := r.reconcileSpireControllerManagerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode)
+	spireControllerManagerConfigMapHash, err := r.reconcileSpireControllerManagerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode, operandTLS)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

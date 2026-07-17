@@ -16,12 +16,13 @@ import (
 
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 )
 
 // reconcileConfigMap reconciles the Spire Agent ConfigMap
-func (r *SpireAgentReconciler) reconcileConfigMap(ctx context.Context, agent *v1alpha1.SpireAgent, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, createOnlyMode bool) (string, error) {
-	spireAgentConfigMap, spireAgentConfigHash, err := generateSpireAgentConfigMap(agent, ztwim)
+func (r *SpireAgentReconciler) reconcileConfigMap(ctx context.Context, agent *v1alpha1.SpireAgent, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, createOnlyMode bool, operandCfg tlspkg.OperandTLSConfig) (string, error) {
+	spireAgentConfigMap, spireAgentConfigHash, err := generateSpireAgentConfigMap(agent, ztwim, operandCfg)
 	if err != nil {
 		r.log.Error(err, "failed to generate spire-agent config map")
 		statusMgr.AddCondition(ConfigMapAvailable, "SpireAgentConfigMapGenerationFailed",
@@ -83,7 +84,7 @@ func (r *SpireAgentReconciler) reconcileConfigMap(ctx context.Context, agent *v1
 	return spireAgentConfigHash, nil
 }
 
-func generateAgentConfig(cfg *v1alpha1.SpireAgent, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager) map[string]interface{} {
+func generateAgentConfig(cfg *v1alpha1.SpireAgent, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, operandCfg tlspkg.OperandTLSConfig) map[string]interface{} {
 	spireServerAddress := "spire-server." + utils.GetOperatorNamespace()
 	agentConf := map[string]interface{}{
 		"agent": map[string]interface{}{
@@ -154,6 +155,14 @@ func generateAgentConfig(cfg *v1alpha1.SpireAgent, ztwim *v1alpha1.ZeroTrustWork
 		}
 	}
 
+	tlspkg.ApplyOperandTLSSettings(agentConf, operandCfg)
+	if agentSection, ok := agentConf["agent"].(map[string]interface{}); ok {
+		tlspkg.ApplyOperandTLSSettings(agentSection, operandCfg)
+	}
+	if telemetry, ok := agentConf["telemetry"].(map[string]interface{}); ok {
+		tlspkg.ApplyOperandTLSSettingsToPrometheus(telemetry, operandCfg)
+	}
+
 	return agentConf
 }
 
@@ -203,8 +212,8 @@ func buildHostCertPath(verification *v1alpha1.WorkloadAttestorsVerification) str
 	return path.Join(verification.HostCertBasePath, verification.HostCertFileName)
 }
 
-func generateSpireAgentConfigMap(spireAgentConfig *v1alpha1.SpireAgent, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager) (*corev1.ConfigMap, string, error) {
-	agentConfig := generateAgentConfig(spireAgentConfig, ztwim)
+func generateSpireAgentConfigMap(spireAgentConfig *v1alpha1.SpireAgent, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, operandCfg tlspkg.OperandTLSConfig) (*corev1.ConfigMap, string, error) {
+	agentConfig := generateAgentConfig(spireAgentConfig, ztwim, operandCfg)
 	agentConfigJSON, err := json.MarshalIndent(agentConfig, "", "  ")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to marshal agent config: %w", err)

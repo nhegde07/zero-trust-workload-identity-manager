@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
+	tlspkg "github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/tls"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -379,7 +381,7 @@ func TestGenerateAgentConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generateAgentConfig(tt.cfg, tt.ztwim)
+			result := generateAgentConfig(tt.cfg, tt.ztwim, tlspkg.OperandTLSConfig{})
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -451,7 +453,7 @@ func TestGenerateSpireAgentConfigMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cm, hash, err := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim)
+			cm, hash, err := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim, tlspkg.OperandTLSConfig{})
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -517,7 +519,7 @@ func TestGenerateSpireAgentConfigMap(t *testing.T) {
 				assert.Contains(t, pluginsSection, "KeyManager")
 
 				// Test that hash is deterministic
-				cm2, hash2, err2 := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim)
+				cm2, hash2, err2 := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim, tlspkg.OperandTLSConfig{})
 				require.NoError(t, err2)
 				assert.Equal(t, hash, hash2)
 				assert.Equal(t, cm.Data[utils.SpireAgentConfigKey], cm2.Data[utils.SpireAgentConfigKey])
@@ -553,13 +555,13 @@ func TestGenerateSpireAgentConfigMapConsistency(t *testing.T) {
 	}
 
 	// Generate the same config multiple times
-	cm1, hash1, err1 := generateSpireAgentConfigMap(spireAgentConfig, ztwim)
+	cm1, hash1, err1 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, tlspkg.OperandTLSConfig{})
 	require.NoError(t, err1)
 
-	cm2, hash2, err2 := generateSpireAgentConfigMap(spireAgentConfig, ztwim)
+	cm2, hash2, err2 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, tlspkg.OperandTLSConfig{})
 	require.NoError(t, err2)
 
-	cm3, hash3, err3 := generateSpireAgentConfigMap(spireAgentConfig, ztwim)
+	cm3, hash3, err3 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, tlspkg.OperandTLSConfig{})
 	require.NoError(t, err3)
 
 	// All results should be identical
@@ -611,7 +613,7 @@ func TestGenerateAgentConfigNilChecks(t *testing.T) {
 					BundleConfigMap: "spire-bundle",
 				},
 			}
-			result := generateAgentConfig(tt.cfg, ztwim)
+			result := generateAgentConfig(tt.cfg, ztwim, tlspkg.OperandTLSConfig{})
 
 			// Basic validation
 			assert.Contains(t, result, "agent")
@@ -644,7 +646,7 @@ func TestGenerateSpireAgentConfigMapEmptyLabels(t *testing.T) {
 		},
 	}
 
-	cm, hash, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim)
+	cm, hash, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, tlspkg.OperandTLSConfig{})
 	require.NoError(t, err)
 	require.NotNil(t, cm)
 	assert.NotEmpty(t, hash)
@@ -988,7 +990,7 @@ func TestGenerateAgentConfigWithVerification(t *testing.T) {
 					BundleConfigMap: "spire-bundle",
 				},
 			}
-			result := generateAgentConfig(tt.cfg, ztwim)
+			result := generateAgentConfig(tt.cfg, ztwim, tlspkg.OperandTLSConfig{})
 
 			// Get the WorkloadAttestor plugin data
 			plugins := result["plugins"].(map[string]interface{})
@@ -1013,4 +1015,53 @@ func TestGenerateAgentConfigWithVerification(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerateAgentConfigTLSInjection(t *testing.T) {
+	cfg := &v1alpha1.SpireAgent{Spec: v1alpha1.SpireAgentSpec{}}
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain: "example.org",
+			ClusterName: "test-cluster",
+		},
+	}
+
+	baseline := generateAgentConfig(cfg, ztwim, tlspkg.OperandTLSConfig{})
+	baselineJSON, err := json.Marshal(baseline)
+	require.NoError(t, err)
+	baselineHash := utils.GenerateConfigHash(baselineJSON)
+
+	intermediate := configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+	injected := generateAgentConfig(cfg, ztwim, tlspkg.OperandTLSConfig{
+		Inject:       true,
+		MinVersion:   intermediate.MinTLSVersion,
+		CipherSuites: intermediate.Ciphers,
+	})
+	assert.Equal(t, "1.2", injected[tlspkg.SPIREConfigKeyMinTLSVersion])
+	agentSection := injected["agent"].(map[string]interface{})
+	assert.Equal(t, "1.2", agentSection[tlspkg.SPIREConfigKeyMinTLSVersion])
+	telemetry := injected["telemetry"].(map[string]interface{})
+	prom := telemetry["Prometheus"].(map[string]interface{})
+	assert.Equal(t, "1.2", prom[tlspkg.SPIREConfigKeyMinTLSVersion])
+
+	injectedJSON, err := json.Marshal(injected)
+	require.NoError(t, err)
+	assert.NotEqual(t, baselineHash, utils.GenerateConfigHash(injectedJSON))
+}
+
+func TestGenerateAgentConfigPQCInjection(t *testing.T) {
+	cfg := &v1alpha1.SpireAgent{Spec: v1alpha1.SpireAgentSpec{}}
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain: "example.org",
+			ClusterName: "test-cluster",
+		},
+	}
+
+	injected := generateAgentConfig(cfg, ztwim, tlspkg.OperandTLSConfig{RequirePQKEM: true})
+	experimental, ok := injected[tlspkg.SPIREConfigKeyExperimental].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, experimental[tlspkg.SPIREConfigKeyRequirePQKEM])
+	_, hasCentralTLS := injected[tlspkg.SPIREConfigKeyMinTLSVersion]
+	assert.False(t, hasCentralTLS)
 }

@@ -75,6 +75,12 @@ spec:
                 x-kubernetes-validations:
                 - message: clusterName is immutable and cannot be changed
                   rule: self == oldSelf
+              requirePQKEM:
+                description: |-
+                  requirePQKEM enables strict hybrid post-quantum key exchange (X25519MLKEM768) across SPIRE operands.
+                  When true, application-level PQC policy overrides central TLS profile injection (minTLSVersion, ciphers).
+                  Nil or false preserves the central TLS profile path when strict adherence is active.
+                type: boolean
               trustDomain:
                 description: |-
                   trustDomain to be used for the SPIFFE identifiers.
