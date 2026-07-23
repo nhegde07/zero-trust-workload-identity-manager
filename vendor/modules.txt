@@ -775,8 +775,8 @@ github.com/openshift/client-go/config/clientset/versioned/typed/config/v1
 # github.com/openshift/controller-runtime-common v0.0.0-20260426080046-85f5eb42235c
 ## explicit; go 1.25.0
 github.com/openshift/controller-runtime-common/pkg/tls
-# github.com/openshift/library-go v0.0.0-20260213153706-03f1709971c5
-## explicit; go 1.24.0
+# github.com/openshift/library-go v0.0.0-20260318140748-04979c746b4d
+## explicit; go 1.25.0
 github.com/openshift/library-go/pkg/crypto
 # github.com/operator-framework/api v0.27.0
 ## explicit; go 1.22.0
@@ -2033,8 +2033,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/common/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
-# sigs.k8s.io/controller-runtime v0.23.3
-## explicit; go 1.25.0
+# sigs.k8s.io/controller-runtime v0.23.3 => sigs.k8s.io/controller-runtime v0.22.4
+## explicit; go 1.24.0
 sigs.k8s.io/controller-runtime
 sigs.k8s.io/controller-runtime/pkg/builder
 sigs.k8s.io/controller-runtime/pkg/cache
@@ -2240,3 +2240,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/tdakkota/asciicheck => github.com/golangci/asciicheck v0.2.0
+# sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.4

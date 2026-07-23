@@ -12,7 +12,7 @@ require (
 	github.com/openshift/api v0.0.0-20260406193844-f50e695cb194
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
 	github.com/openshift/controller-runtime-common v0.0.0-20260426080046-85f5eb42235c
-	github.com/openshift/library-go v0.0.0-20260213153706-03f1709971c5
+	github.com/openshift/library-go v0.0.0-20260318140748-04979c746b4d
 	github.com/operator-framework/api v0.27.0
 	github.com/spiffe/spire-controller-manager v0.6.4
 	github.com/stretchr/testify v1.11.1
@@ -296,3 +296,5 @@ require (
 )
 
 replace github.com/tdakkota/asciicheck => github.com/golangci/asciicheck v0.2.0
+
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.4
