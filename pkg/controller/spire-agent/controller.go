@@ -28,9 +28,11 @@ import (
 
 	"github.com/go-logr/logr"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
+	pkgtls "github.com/openshift/zero-trust-workload-identity-manager/pkg/tls"
 )
 
 const (
@@ -148,7 +150,15 @@ func (r *SpireAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Reconcile ConfigMap
-	configHash, err := r.reconcileConfigMap(ctx, &agent, statusMgr, &ztwim, createOnlyMode)
+	var apiServer configv1.APIServer
+	if err := r.ctrlClient.Get(ctx, types.NamespacedName{Name: "cluster"}, &apiServer); err != nil {
+		return ctrl.Result{}, err
+	}
+	tlsProfile, err := pkgtls.GetOperandTLSProfile(apiServer)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	configHash, err := r.reconcileConfigMap(ctx, &agent, statusMgr, &ztwim, createOnlyMode, &tlsProfile)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -47,23 +47,20 @@ func TestResolveTLSConfig(t *testing.T) {
 	modernProfile := configv1.TLSProfiles[configv1.TLSProfileModernType]
 
 	tests := []struct {
-		name                 string
-		apiServer            configv1.APIServer
-		wantError            bool
-		wantMinTLSVersion    uint16
-		wantCipherSuites     bool
-		wantAdherencePolicy  configv1.TLSAdherencePolicy
-		wantTLSProfileSpec   configv1.TLSProfileSpec
+		name                string
+		apiServer           configv1.APIServer
+		wantMinTLSVersion   uint16
+		wantCipherSuites    bool
+		wantAdherencePolicy configv1.TLSAdherencePolicy
+		wantTLSProfileSpec  configv1.TLSProfileSpec
 	}{
 		{
 			name: "StrictAllComponents honors cluster Old profile",
 			apiServer: configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec: configv1.APIServerSpec{
-					TLSSecurityProfile: &configv1.TLSSecurityProfile{
-						Type: configv1.TLSProfileOldType,
-					},
-					TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents,
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileOldType},
+					TLSAdherence:       configv1.TLSAdherencePolicyStrictAllComponents,
 				},
 			},
 			wantMinTLSVersion:   libgocrypto.TLSVersionOrDie(string(oldProfile.MinTLSVersion)),
@@ -72,46 +69,40 @@ func TestResolveTLSConfig(t *testing.T) {
 			wantTLSProfileSpec:  *oldProfile,
 		},
 		{
-			name: "NoOpinion uses default Intermediate profile",
+			name: "NoOpinion uses Intermediate operator TLS and empty stored profile",
 			apiServer: configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec: configv1.APIServerSpec{
-					TLSSecurityProfile: &configv1.TLSSecurityProfile{
-						Type: configv1.TLSProfileOldType,
-					},
-					TLSAdherence: configv1.TLSAdherencePolicyNoOpinion,
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileOldType},
+					TLSAdherence:       configv1.TLSAdherencePolicyNoOpinion,
 				},
 			},
 			wantMinTLSVersion:   libgocrypto.TLSVersionOrDie(string(defaultProfile.MinTLSVersion)),
 			wantCipherSuites:    true,
 			wantAdherencePolicy: configv1.TLSAdherencePolicyNoOpinion,
-			wantTLSProfileSpec:  *oldProfile,
+			wantTLSProfileSpec:  configv1.TLSProfileSpec{},
 		},
 		{
-			name: "LegacyAdheringComponentsOnly uses default Intermediate profile",
+			name: "LegacyAdheringComponentsOnly uses Intermediate operator TLS and empty stored profile",
 			apiServer: configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec: configv1.APIServerSpec{
-					TLSSecurityProfile: &configv1.TLSSecurityProfile{
-						Type: configv1.TLSProfileOldType,
-					},
-					TLSAdherence: configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly,
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileOldType},
+					TLSAdherence:       configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly,
 				},
 			},
 			wantMinTLSVersion:   libgocrypto.TLSVersionOrDie(string(defaultProfile.MinTLSVersion)),
 			wantCipherSuites:    true,
 			wantAdherencePolicy: configv1.TLSAdherencePolicyLegacyAdheringComponentsOnly,
-			wantTLSProfileSpec:  *oldProfile,
+			wantTLSProfileSpec:  configv1.TLSProfileSpec{},
 		},
 		{
 			name: "StrictAllComponents honors Modern profile without cipher suites",
 			apiServer: configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec: configv1.APIServerSpec{
-					TLSSecurityProfile: &configv1.TLSSecurityProfile{
-						Type: configv1.TLSProfileModernType,
-					},
-					TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents,
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileModernType},
+					TLSAdherence:       configv1.TLSAdherencePolicyStrictAllComponents,
 				},
 			},
 			wantMinTLSVersion:   libgocrypto.TLSVersionOrDie(string(modernProfile.MinTLSVersion)),
@@ -140,7 +131,7 @@ func TestResolveTLSConfig(t *testing.T) {
 				},
 			},
 			wantMinTLSVersion: tls.VersionTLS12,
-			wantCipherSuites:    true,
+			wantCipherSuites:  true,
 			wantAdherencePolicy: configv1.TLSAdherencePolicyStrictAllComponents,
 			wantTLSProfileSpec: configv1.TLSProfileSpec{
 				Ciphers: []string{
@@ -164,32 +155,24 @@ func TestResolveTLSConfig(t *testing.T) {
 			wantTLSProfileSpec:  *defaultProfile,
 		},
 		{
-			name: "custom profile without Custom field returns error",
+			name: "invalid custom profile uses empty stored profile and TLS 1.2 operator fallback",
 			apiServer: configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec: configv1.APIServerSpec{
-					TLSSecurityProfile: &configv1.TLSSecurityProfile{
-						Type: configv1.TLSProfileCustomType,
-					},
-					TLSAdherence: configv1.TLSAdherencePolicyStrictAllComponents,
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileCustomType},
+					TLSAdherence:       configv1.TLSAdherencePolicyStrictAllComponents,
 				},
 			},
-			wantError: true,
+			wantMinTLSVersion:   libgocrypto.TLSVersionOrDie(string(configv1.VersionTLS12)),
+			wantCipherSuites:    false,
+			wantAdherencePolicy: configv1.TLSAdherencePolicyStrictAllComponents,
+			wantTLSProfileSpec:  configv1.TLSProfileSpec{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ResolveTLSConfig(tt.apiServer)
-			if tt.wantError {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("ResolveTLSConfig() error = %v", err)
-			}
+			result := ResolveTLSConfig(tt.apiServer)
 
 			if result.TLSAdherencePolicy != tt.wantAdherencePolicy {
 				t.Fatalf("TLSAdherencePolicy = %q, want %q", result.TLSAdherencePolicy, tt.wantAdherencePolicy)
@@ -208,6 +191,81 @@ func TestResolveTLSConfig(t *testing.T) {
 				}
 			} else if len(tlsCfg.CipherSuites) != 0 {
 				t.Fatalf("expected no cipher suites, got %v", tlsCfg.CipherSuites)
+			}
+		})
+	}
+}
+
+func TestGetOperandTLSProfile(t *testing.T) {
+	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
+	intermediateProfile := configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
+
+	tests := []struct {
+		name             string
+		apiServer        configv1.APIServer
+		wantNil          bool
+		wantError        bool
+		wantMinTLS       string
+		wantCipherSuites bool
+	}{
+		{
+			name: "NoOpinion returns nil operand profile",
+			apiServer: configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileOldType},
+					TLSAdherence:       configv1.TLSAdherencePolicyNoOpinion,
+				},
+			},
+			wantNil: true,
+		},
+		{
+			name: "Strict honors cluster profile",
+			apiServer: configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileOldType},
+					TLSAdherence:       configv1.TLSAdherencePolicyStrictAllComponents,
+				},
+			},
+			wantMinTLS:       string(oldProfile.MinTLSVersion),
+			wantCipherSuites: true,
+		},
+		{
+			name: "invalid custom falls back to Intermediate with error",
+			apiServer: configv1.APIServer{
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileCustomType},
+					TLSAdherence:       configv1.TLSAdherencePolicyStrictAllComponents,
+				},
+			},
+			wantError:        true,
+			wantMinTLS:       string(intermediateProfile.MinTLSVersion),
+			wantCipherSuites: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profile, err := GetOperandTLSProfile(tt.apiServer)
+			if tt.wantError && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantNil {
+				if profile != nil {
+					t.Fatalf("expected nil profile, got %#v", profile)
+				}
+				return
+			}
+			if profile == nil {
+				t.Fatal("expected non-nil profile")
+			}
+			if profile.MinTLSVersion != tt.wantMinTLS {
+				t.Fatalf("MinTLSVersion = %q, want %q", profile.MinTLSVersion, tt.wantMinTLS)
+			}
+			if tt.wantCipherSuites && len(profile.CipherSuites) == 0 {
+				t.Fatal("expected cipher suites to be populated")
 			}
 		})
 	}
@@ -238,7 +296,7 @@ func TestFetchAPIServerTLSConfig_gracefulDefaultsOnFetchFailure(t *testing.T) {
 
 	defaultProfile := configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 	if result.TLSAdherencePolicy != configv1.TLSAdherencePolicyNoOpinion {
-		t.Fatalf("TLSAdherencePolicy = %q, want empty policy", result.TLSAdherencePolicy)
+		t.Fatalf("TLSAdherencePolicy = %q, want %q", result.TLSAdherencePolicy, configv1.TLSAdherencePolicyNoOpinion)
 	}
 	if !reflect.DeepEqual(result.TLSProfileSpec, configv1.TLSProfileSpec{}) {
 		t.Fatalf("TLSProfileSpec = %#v, want empty profile", result.TLSProfileSpec)
@@ -251,5 +309,13 @@ func TestFetchAPIServerTLSConfig_gracefulDefaultsOnFetchFailure(t *testing.T) {
 	}
 	if len(tlsCfg.CipherSuites) == 0 {
 		t.Fatal("expected default Intermediate cipher suites to be configured")
+	}
+}
+
+func TestMergeExperimentalTLSProfile_nilProfile(t *testing.T) {
+	config := map[string]interface{}{"server": map[string]interface{}{}}
+	MergeExperimentalTLSProfile(config, nil)
+	if _, ok := config["experimental"]; ok {
+		t.Fatal("expected no experimental block when profile is nil")
 	}
 }

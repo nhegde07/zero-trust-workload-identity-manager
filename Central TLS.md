@@ -56,7 +56,7 @@ SPIRE is an upstream CNCF project that does not understand OpenShift TLS profile
 | **Fetch \+ apply profile** | cmd/.../main.go main() | Resolve cluster TLS (adherence \+ profile) → NewTLSConfigFromProfile → append to metrics / webhook TLSOpts before NewManager. |
 | **Watch \+ restart operator** | cmd/.../main.go after mgr creation | SecurityProfileWatcher: OnProfileChange / OnAdherencePolicyChange → cancel context → mgr.Start ends → process exits → operator pod restart. |
 | **APIServer in cache** | pkg/client/client.go | Include \&configv1.APIServer{} in cache & informerResources so GetClient() can serve the apiServer object during reconcile  |
-| **Resolve profile for operands (no dedicated watch)** | Shared: pkg/controller/tls/tls.go (or extend existing) | Helpers to resolve min TLS string \+ cipher list from APIServer/cluster (same semantics as operator). Called from each operand config generator during reconcile. |
+| **Resolve profile for operands (no dedicated watch)** | Shared: pkg/tls/ | Helpers to resolve min TLS string \+ cipher list from APIServer/cluster (same semantics as operator). Called from each operand config generator during reconcile. |
 | **Inject minTLSVersion and cipherSuite into operands config.** | pkg/controller/spire-server/statefulset.go, spire-agent/daemonset.go, spire-oidc-discovery-provider/deployments.go | Config change causes hash update and thus triggering rolling restart |
 | **RBAC** | config/rbac/role.yaml | get/list/watch on config.openshift.io/apiservers |
 | **CSV annotation** | config/manifests/bases/...clusterserviceversion.yaml | tls-profiles: "true" |
@@ -75,7 +75,7 @@ These are downstream patches initially, with upstream PRs to follow.
 | **Configurable TLS in OIDC provider** | spire/support/oidc-discovery-provider/main.go | Read TLS settings from config |
 | **Configurable TLS in ctrl-mgr webhook** | spire-controller-manager/cmd/main.go | Read TLS\_MIN\_VERSION and TLS\_CIPHER\_SUITES from config in webhook TLSOpts instead of hardcoding TLS 1.2 |
 
-*All upstream changes follow the same pattern: read from config, parse, apply. Fall back to current behavior (TLS 1.2, Go default ciphers) when config is unset.
+*All upstream changes follow the same pattern: read from config, parse, apply. Fall back to current behavior (TLS 1.2, Go default ciphers) when config is unset. [Experimental require\_pq\_kem config variable](https://github.com/spiffe/spire/blob/f634aaa8625a84438a51fdd628e1f218ec1862c6/doc/spire_agent.md?plain=1#L85) in Spire-server takes precedence if set.*
 
 ### **Change Propagation Flow**
 
@@ -91,8 +91,11 @@ These are downstream patches initially, with upstream PRs to follow.
 
 | TLS adherence (APIServer.spec.tlsAdherence) | TLS security profile fetched (APIServer.spec.tlsSecurityProfile) | Final TLS used (operator TLSConfig via NewTLSConfigFromProfile) |
 | :---- | :---- | :---- |
-| StrictAllComponents (or any value except "" / NoOpinion / LegacyAdheringComponentsOnly, including unknown strings for forward compatibility) | Old / Intermediate / Modern / Custom (fetch OK) | That profile: its min TLS \+ cipher list from the profile map.Modern → TLS 1.3 min; ciphers not set in tls.Config (Go TLS 1.3 behavior). |
-|  | Else (fetch failed or profile unset) | Intermediate: TLS 1.2 min; Empty Cipher suite |
-| NoOpinion ("")ORLegacyAdheringComponentsOnlyORAdherence fetch failed (treated same as NoOpinion) | Any (including unset, Modern, custom, or profile fetch failed) | Existing way.Under ZTWIM context, this defaults to Intermediate: TLS 1.2 min; Empty Cipher suite  |
+| StrictAllComponents (or any value except "" / NoOpinion / LegacyAdheringComponentsOnly, including unknown strings for forward compatibility) | If (fetch successful) Old / Intermediate / Modern / Custom | That profile: its min TLS \+ cipher list from the profile map.Modern → TLS 1.3 min; ciphers not set in tls.Config (Go TLS 1.3 behavior). |
+|  | Else if (fetch successful but profile unset) | Intermediate: TLS 1.2 min; Intermediate Cipher suite |
+|  | Else (fetch failed) | Default: TLS 1.2 min; Empty Cipher suite |
+| NoOpinion ("")ORLegacyAdheringComponentsOnlyORAdherence fetch failed (treated same as NoOpinion) | If (fetch successful) Old / Intermediate / Modern / Custom  | Intermediate: TLS 1.2 min; Intermediate Cipher suite |
+|  | Else if (fetch successful but profile unset) | Intermediate: TLS 1.2 min; Intermediate Cipher suite |
+|  | Else (fetch failed) | Intermediate: TLS 1.2 min; Intermediate Cipher suite |
 
 **Summary**: *StrictAllComponents* (and forward-compatible unknown) modes honor the cluster-resolved profileTLS policy is enforced as per the one set in the APIServer resource ONLY when adherence is set as STRICT. Else, the default fallback Intermediate profile is used

@@ -219,8 +219,11 @@ func main() {
 	tlsConfigResult, err := pkgtls.FetchAPIServerTLSConfig(context.Background(), config, scheme)
 	exitOnError(err, "unable to resolve TLS configuration")
 
-	metricsTLSOpts = append(metricsTLSOpts, tlsConfigResult.TLSConfig)
-	webhookTLSOpts = append(webhookTLSOpts, tlsConfigResult.TLSConfig)
+	if tlsConfigResult.TLSConfig != nil {
+		//strict adherence is set.
+		metricsTLSOpts = append(metricsTLSOpts, tlsConfigResult.TLSConfig)
+		webhookTLSOpts = append(webhookTLSOpts, tlsConfigResult.TLSConfig)
+	}
 
 	// Create unified cache builder to prevent race conditions between manager and reconciler caches
 	cacheBuilder, err := customClient.NewCacheBuilder()
