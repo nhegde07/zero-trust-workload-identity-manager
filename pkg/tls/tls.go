@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 	utiltls "github.com/openshift/controller-runtime-common/pkg/tls"
@@ -31,21 +30,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// OperandTLSProfile holds the TLS profile spec for the SPIRE operand.
+type OperandTLSProfile struct {
+	CipherSuites     []string `json:"cipherSuites,omitempty"`     // IANA cipher suite names e.g. "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+	CurvePreferences []string `json:"curvePreferences,omitempty"` // IANA curve names e.g. "X25519, X25519MLKEM768,secp256r1"
+	MinTLSVersion    string   `json:"minTLSVersion,omitempty"`    // Kubernetes TLS version e.g. "VersionTLS10"
+}
+
 // TLSConfigResult holds the resolved TLS configuration along with the cluster-wide TLS profile metadata needed by the SecurityProfileWatcher.
 type TLSConfigResult struct {
 	// TLSConfig is a function that applies TLS settings to a tls.Config.
 	TLSConfig func(*tls.Config)
+	//OperandTLSProfile is the TLS profile spec for the SPIRE operands.
+	OperandTLSProfile *OperandTLSProfile
 	// TLSAdherencePolicy is the cluster-wide TLS adherence policy.
 	TLSAdherencePolicy configv1.TLSAdherencePolicy
 	// TLSProfileSpec is the cluster-wide TLS profile spec.
 	TLSProfileSpec configv1.TLSProfileSpec
-}
-
-// OperandTLSProfile holds the TLS profile spec for the SPIRE operand.
-type OperandTLSProfile struct {
-	MinTLSVersion string // Kubernetes TLS version e.g. "VersionTLS10"
-	CipherSuites  string // IANA cipher suite names e.g. "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
-	Curves        string // IANA curve names e.g. "X25519, X25519MLKEM768,secp256r1"
 }
 
 // FetchAPIServerTLSConfig fetches operator TLS settings from apiservers/cluster.
@@ -64,20 +65,26 @@ func FetchAPIServerTLSConfig(ctx context.Context, restConfig *rest.Config, schem
 
 	initialTLSProfileSpec, err := utiltls.FetchAPIServerTLSProfile(ctx, k8sClient)
 	if err != nil {
-		klog.Errorf("error while fetching TLS profile from API server: %v. Continuing with empty profile.")
+		klog.Errorf("error while fetching TLS profile from API server: %v. Continuing with empty profile.", err)
 		// Default to an empty profile if the API server is not available or the field is not set. We will still keep a watch on the API server for the field and trigger a restart if the value changes.
 		initialTLSProfileSpec = configv1.TLSProfileSpec{}
 	}
 
+	operatorTLSConfig, operandTLSProfile := getOperatorAndOperandTLSConfig(initialTLSAdherencePolicy, initialTLSProfileSpec)
+
 	return TLSConfigResult{
-		TLSConfig:          getTLSConfig(initialTLSAdherencePolicy, initialTLSProfileSpec),
+		TLSConfig:          operatorTLSConfig,
+		OperandTLSProfile:  operandTLSProfile,
 		TLSAdherencePolicy: initialTLSAdherencePolicy,
 		TLSProfileSpec:     initialTLSProfileSpec,
 	}, nil
 }
 
-func getTLSConfig(tlsAdherencePolicy configv1.TLSAdherencePolicy, tlsProfileSpec configv1.TLSProfileSpec) func(*tls.Config) {
-	var tlsConfig func(*tls.Config)
+func getOperatorAndOperandTLSConfig(tlsAdherencePolicy configv1.TLSAdherencePolicy, tlsProfileSpec configv1.TLSProfileSpec) (func(*tls.Config), *OperandTLSProfile) {
+	var (
+		operatorTLSConfig func(*tls.Config)
+		operandTLSProfile *OperandTLSProfile
+	)
 
 	// If the cluster-wide TLS adherence policy is set to honor the cluster-wide TLS profile,
 	// use the cluster-wide TLS profile-based configuration.
@@ -88,59 +95,28 @@ func getTLSConfig(tlsAdherencePolicy configv1.TLSAdherencePolicy, tlsProfileSpec
 		}
 
 		// Set the TLS configuration to the cluster-wide TLS profile-based configuration.
-		tlsConfig = profileTLSConfig
+		operatorTLSConfig = profileTLSConfig
+		operandTLSProfile = getOperandTLSProfile(tlsProfileSpec)
 	} else {
 		//Do nothing. Let The TLS Endpoints behave as they are.
-		tlsConfig = nil
+		operatorTLSConfig = nil
+		operandTLSProfile = nil
 	}
 
-	return tlsConfig
+	return operatorTLSConfig, operandTLSProfile
 }
 
-// GetOperandTLSProfile resolves the config.openshift.io/v1/apiserver resource into a OperandTLSProfile.
-func GetOperandTLSProfile(apiServer configv1.APIServer) (OperandTLSProfile, error) {
-	tlsProfileSpec, err := utiltls.GetTLSProfileSpec(apiServer.Spec.TLSSecurityProfile)
-	tlsCfg := getTLSConfig(apiServer.Spec.TLSAdherence, tlsProfileSpec)
-
-	if err != nil {
-		return getOperandTLSProfileFromTLSConfig(tlsCfg, tlsProfileSpec), fmt.Errorf("error while fetching TLS profile: %w", err)
-	}
-
-	return getOperandTLSProfileFromTLSConfig(tlsCfg, tlsProfileSpec), nil
-}
-
-func getOperandTLSProfileFromTLSConfig(tlsCfg func(*tls.Config), tlsProfileSpec configv1.TLSProfileSpec) OperandTLSProfile {
-	if tlsCfg == nil {
-		return OperandTLSProfile{}
-	}
-
+func getOperandTLSProfile(tlsProfileSpec configv1.TLSProfileSpec) *OperandTLSProfile {
 	profile := OperandTLSProfile{
 		MinTLSVersion: string(tlsProfileSpec.MinTLSVersion),
-		CipherSuites:  joinIANACiphers(tlsProfileSpec.Ciphers),
+		CipherSuites:  libgocrypto.OpenSSLToIANACipherSuites(tlsProfileSpec.Ciphers),
 	}
 
-	return profile
-}
-
-func joinIANACiphers(openSSLNames []string) string {
-	iana := libgocrypto.OpenSSLToIANACipherSuites(openSSLNames)
-	return strings.Join(iana, ",")
-}
-
-// InsertOperandTLSProfileToConfigMap returns the experimental.tlsProfile block for SPIRE operand configs.
-func InsertOperandTLSProfileToConfigMap(config map[string]interface{}, profile OperandTLSProfile) {
-	config["experimental"] = map[string]interface{}{
-		"tlsProfile": map[string]interface{}{
-			"minTLSVersion": profile.MinTLSVersion,
-			"cipherSuites":  profile.CipherSuites,
-			"curves":        profile.Curves,
-		},
-	}
+	return &profile
 }
 
 /*
 {
-  "experimental": {
     "tlsProfile": {
       "minTLSVersion": "VersionTLS12",
       "cipherSuites": [
@@ -161,6 +137,5 @@ func InsertOperandTLSProfileToConfigMap(config map[string]interface{}, profile O
         "secp384r1"
       ]
     }
-  }
 }
 */

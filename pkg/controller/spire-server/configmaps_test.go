@@ -91,7 +91,7 @@ func TestGenerateSpireServerConfigMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cm, err := generateSpireServerConfigMap(tt.config, tt.ztwim, pkgtls.DefaultOperandTLSProfile())
+			cm, err := generateSpireServerConfigMap(tt.config, tt.ztwim, nil)
 
 			// Check error expectations
 			if tt.expectError {
@@ -168,7 +168,7 @@ func TestGenerateServerConfMap(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(validConfig, validZTWIM, pkgtls.DefaultOperandTLSProfile())
+	confMap := generateServerConfMap(validConfig, validZTWIM, nil)
 
 	// Test server section
 	server, ok := confMap["server"].(map[string]interface{})
@@ -312,7 +312,7 @@ func TestGenerateServerConfMapTTLFields(t *testing.T) {
 				},
 			}
 
-			confMap := generateServerConfMap(config, validZTWIM, pkgtls.DefaultOperandTLSProfile())
+			confMap := generateServerConfMap(config, validZTWIM, nil)
 
 			server, ok := confMap["server"].(map[string]interface{})
 			if !ok {
@@ -351,7 +351,7 @@ func TestGenerateSpireServerConfigMapWithTTLFields(t *testing.T) {
 		},
 	}
 
-	cm, err := generateSpireServerConfigMap(config, validZTWIM, pkgtls.DefaultOperandTLSProfile())
+	cm, err := generateSpireServerConfigMap(config, validZTWIM, nil)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -571,7 +571,7 @@ func TestGenerateSpireControllerManagerConfigYaml(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			yamlStr, err := generateSpireControllerManagerConfigYaml(tt.config, tt.ztwim, pkgtls.DefaultOperandTLSProfile())
+			yamlStr, err := generateSpireControllerManagerConfigYaml(tt.config, tt.ztwim, nil)
 
 			// Check error expectations
 			if tt.expectError {
@@ -949,7 +949,7 @@ func TestGenerateServerConfMapWithKeyTypes(t *testing.T) {
 				},
 			}
 
-			confMap := generateServerConfMap(config, validZTWIM, pkgtls.DefaultOperandTLSProfile())
+			confMap := generateServerConfMap(config, validZTWIM, nil)
 
 			// Get server section
 			server, ok := confMap["server"].(map[string]interface{})
@@ -1027,7 +1027,7 @@ func TestGenerateSpireServerConfigMapWithKeyTypes(t *testing.T) {
 				},
 			}
 
-			cm, err := generateSpireServerConfigMap(config, validZTWIM, pkgtls.DefaultOperandTLSProfile())
+			cm, err := generateSpireServerConfigMap(config, validZTWIM, nil)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -1496,7 +1496,7 @@ func TestReconcileSpireServerConfigMap(t *testing.T) {
 			}
 			statusMgr := status.NewManager(fakeClient)
 
-			hash, err := reconciler.reconcileSpireServerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode, pkgtls.DefaultOperandTLSProfile())
+			hash, err := reconciler.reconcileSpireServerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode, nil)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
@@ -1630,7 +1630,7 @@ func TestReconcileSpireControllerManagerConfigMap(t *testing.T) {
 			ztwim := createTestZTWIM()
 			statusMgr := status.NewManager(fakeClient)
 
-			hash, err := reconciler.reconcileSpireControllerManagerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode, pkgtls.DefaultOperandTLSProfile())
+			hash, err := reconciler.reconcileSpireControllerManagerConfigMap(context.Background(), server, statusMgr, ztwim, tt.createOnlyMode, nil)
 
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
@@ -1798,7 +1798,7 @@ func TestGenerateServerConfMap_WithCertManagerUpstreamAuthority(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim, pkgtls.DefaultOperandTLSProfile())
+	confMap := generateServerConfMap(config, ztwim, nil)
 
 	plugins, ok := confMap["plugins"].(map[string]interface{})
 	if !ok {
@@ -1856,7 +1856,7 @@ func TestGenerateServerConfMap_WithVaultUpstreamAuthority(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim, pkgtls.DefaultOperandTLSProfile())
+	confMap := generateServerConfMap(config, ztwim, nil)
 
 	plugins, ok := confMap["plugins"].(map[string]interface{})
 	if !ok {
@@ -1913,7 +1913,7 @@ func TestGenerateServerConfMap_WithoutUpstreamAuthority(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim, pkgtls.DefaultOperandTLSProfile())
+	confMap := generateServerConfMap(config, ztwim, nil)
 
 	plugins, ok := confMap["plugins"].(map[string]interface{})
 	if !ok {
@@ -1948,7 +1948,7 @@ func TestGenerateServerConfMap_VaultWithCACert(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim, pkgtls.DefaultOperandTLSProfile())
+	confMap := generateServerConfMap(config, ztwim, nil)
 
 	plugins := confMap["plugins"].(map[string]interface{})
 	ua := plugins["UpstreamAuthority"].([]map[string]interface{})
@@ -1980,7 +1980,7 @@ func TestGenerateServerConfMap_VaultWithNamespace(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim, pkgtls.DefaultOperandTLSProfile())
+	confMap := generateServerConfMap(config, ztwim, nil)
 
 	plugins := confMap["plugins"].(map[string]interface{})
 	ua := plugins["UpstreamAuthority"].([]map[string]interface{})
@@ -2009,7 +2009,7 @@ func TestGenerateServerConfMap_CertManagerDefaults(t *testing.T) {
 		},
 	}
 
-	confMap := generateServerConfMap(config, ztwim, pkgtls.DefaultOperandTLSProfile())
+	confMap := generateServerConfMap(config, ztwim, nil)
 
 	plugins := confMap["plugins"].(map[string]interface{})
 	ua := plugins["UpstreamAuthority"].([]map[string]interface{})
@@ -2034,13 +2034,17 @@ func TestGenerateServerConfMap_ExperimentalTLSProfile(t *testing.T) {
 		},
 	}
 	profile := &pkgtls.OperandTLSProfile{
-		MinTLSVersion: "VersionTLS13",
-		Curves:        []string{"X25519"},
+		MinTLSVersion:    "VersionTLS13",
+		CurvePreferences: []string{"X25519"},
 	}
 
 	confMap := generateServerConfMap(config, ztwim, profile)
 
-	experimental, ok := confMap["experimental"].(map[string]interface{})
+	server, ok := confMap["server"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected server block in server config")
+	}
+	experimental, ok := server["experimental"].(map[string]interface{})
 	if !ok {
 		t.Fatal("expected experimental block in server config")
 	}
@@ -2051,9 +2055,8 @@ func TestGenerateServerConfMap_ExperimentalTLSProfile(t *testing.T) {
 	if tlsProfile["minTLSVersion"] != "VersionTLS13" {
 		t.Fatalf("expected minTLSVersion VersionTLS13, got %v", tlsProfile["minTLSVersion"])
 	}
-	curves, ok := tlsProfile["curves"].([]string)
-	if !ok || len(curves) != 1 || curves[0] != "X25519" {
-		t.Fatalf("expected curves [X25519], got %v", tlsProfile["curves"])
+	if tlsProfile["curve_preferences"] != nil {
+		t.Fatalf("expected curve_preferences to be nil, got %v", tlsProfile["curve_preferences"])
 	}
 }
 
@@ -2067,7 +2070,7 @@ func TestSpireServerConfigHashChangesWithTLSProfile(t *testing.T) {
 		},
 	}
 
-	defaultJSON, err := marshalToJSON(generateServerConfMap(config, ztwim, pkgtls.DefaultOperandTLSProfile()))
+	defaultJSON, err := marshalToJSON(generateServerConfMap(config, ztwim, nil))
 	if err != nil {
 		t.Fatalf("marshal default config: %v", err)
 	}
@@ -2080,5 +2083,69 @@ func TestSpireServerConfigHashChangesWithTLSProfile(t *testing.T) {
 
 	if generateConfigHash(defaultJSON) == generateConfigHash(modernJSON) {
 		t.Fatal("expected config hash to change when TLS profile changes")
+	}
+}
+
+func fixedTestTLSProfile() *pkgtls.OperandTLSProfile {
+	return &pkgtls.OperandTLSProfile{
+		MinTLSVersion:    "VersionTLS12",
+		CipherSuites:     []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
+		CurvePreferences: []string{"X25519", "secp256r1"},
+	}
+}
+
+func TestSpireServerConfigHashConsistentWithFixedTLSProfile(t *testing.T) {
+	config := createValidConfig()
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain:     "example.org",
+			BundleConfigMap: "spire-bundle",
+			ClusterName:     "test-cluster",
+		},
+	}
+	profile := fixedTestTLSProfile()
+
+	hash := func() string {
+		jsonBytes, err := marshalToJSON(generateServerConfMap(config, ztwim, profile))
+		if err != nil {
+			t.Fatalf("marshal server config: %v", err)
+		}
+		return generateConfigHash(jsonBytes)
+	}
+
+	hash1 := hash()
+	hash2 := hash()
+	hash3 := hash()
+
+	if hash1 != hash2 || hash2 != hash3 {
+		t.Fatalf("expected identical server config hash for the same fixed TLS profile, got %q, %q, %q", hash1, hash2, hash3)
+	}
+}
+
+func TestSpireControllerManagerConfigHashConsistentWithFixedTLSProfile(t *testing.T) {
+	config := createValidConfig()
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain:     "example.org",
+			BundleConfigMap: "spire-bundle",
+			ClusterName:     "test-cluster",
+		},
+	}
+	profile := fixedTestTLSProfile()
+
+	hash := func() string {
+		yamlStr, err := generateSpireControllerManagerConfigYaml(config, ztwim, profile)
+		if err != nil {
+			t.Fatalf("generate controller manager config yaml: %v", err)
+		}
+		return generateConfigHashFromString(yamlStr)
+	}
+
+	hash1 := hash()
+	hash2 := hash()
+	hash3 := hash()
+
+	if hash1 != hash2 || hash2 != hash3 {
+		t.Fatalf("expected identical controller manager config hash for the same fixed TLS profile, got %q, %q, %q", hash1, hash2, hash3)
 	}
 }

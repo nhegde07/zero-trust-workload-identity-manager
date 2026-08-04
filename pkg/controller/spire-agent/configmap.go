@@ -155,7 +155,7 @@ func generateAgentConfig(cfg *v1alpha1.SpireAgent, ztwim *v1alpha1.ZeroTrustWork
 		}
 	}
 
-	pkgtls.MergeExperimentalTLSProfile(agentConf, tlsProfile)
+	insertOperandTLSProfileToSpireAgentConfigMap(agentConf["agent"].(map[string]interface{}), tlsProfile)
 
 	return agentConf
 }
@@ -230,4 +230,16 @@ func generateSpireAgentConfigMap(spireAgentConfig *v1alpha1.SpireAgent, ztwim *v
 	}
 
 	return cm, spireAgentConfigHash, nil
+}
+
+func insertOperandTLSProfileToSpireAgentConfigMap(agentConf map[string]interface{}, tlsProfile *pkgtls.OperandTLSProfile) {
+	if tlsProfile == nil {
+		return
+	}
+
+	agentConf["tls_profile"] = map[string]interface{}{
+		"min_tls_version":   tlsProfile.MinTLSVersion,
+		"cipher_suites":     tlsProfile.CipherSuites,
+		"curve_preferences": tlsProfile.CurvePreferences,
+	}
 }

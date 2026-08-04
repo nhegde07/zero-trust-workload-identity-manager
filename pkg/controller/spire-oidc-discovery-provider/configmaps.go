@@ -131,7 +131,7 @@ func generateOIDCConfigMapFromCR(dp *v1alpha1.SpireOIDCDiscoveryProvider, ztwim 
 		},
 	}
 
-	pkgtls.MergeExperimentalTLSProfile(oidcConfig, tlsProfile)
+	insertOperandTLSProfileToOIDCConfigMap(oidcConfig, tlsProfile)
 
 	oidcJSON, err := json.MarshalIndent(oidcConfig, "", "  ")
 	if err != nil {
@@ -150,4 +150,15 @@ func generateOIDCConfigMapFromCR(dp *v1alpha1.SpireOIDCDiscoveryProvider, ztwim 
 	}
 
 	return configMap, nil
+}
+
+func insertOperandTLSProfileToOIDCConfigMap(oidcConfig map[string]interface{}, tlsProfile *pkgtls.OperandTLSProfile) {
+	if tlsProfile == nil {
+		return
+	}
+	oidcConfig["tls_profile"] = map[string]interface{}{
+		"min_tls_version":   tlsProfile.MinTLSVersion,
+		"cipher_suites":     tlsProfile.CipherSuites,
+		"curve_preferences": tlsProfile.CurvePreferences,
+	}
 }

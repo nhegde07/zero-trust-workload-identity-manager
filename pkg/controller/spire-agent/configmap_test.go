@@ -13,15 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func withDefaultTLSProfile(config map[string]interface{}) map[string]interface{} {
-	expected := make(map[string]interface{}, len(config)+1)
-	for k, v := range config {
-		expected[k] = v
-	}
-	pkgtls.MergeExperimentalTLSProfile(expected, pkgtls.DefaultOperandTLSProfile())
-	return expected
-}
-
 func TestGenerateAgentConfig(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -389,8 +380,8 @@ func TestGenerateAgentConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generateAgentConfig(tt.cfg, tt.ztwim, pkgtls.DefaultOperandTLSProfile())
-			assert.Equal(t, withDefaultTLSProfile(tt.expected), result)
+			result := generateAgentConfig(tt.cfg, tt.ztwim, nil)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -461,7 +452,7 @@ func TestGenerateSpireAgentConfigMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cm, hash, err := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim, pkgtls.DefaultOperandTLSProfile())
+			cm, hash, err := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim, nil)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -527,7 +518,7 @@ func TestGenerateSpireAgentConfigMap(t *testing.T) {
 				assert.Contains(t, pluginsSection, "KeyManager")
 
 				// Test that hash is deterministic
-				cm2, hash2, err2 := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim, pkgtls.DefaultOperandTLSProfile())
+				cm2, hash2, err2 := generateSpireAgentConfigMap(tt.spireAgentConfig, tt.ztwim, nil)
 				require.NoError(t, err2)
 				assert.Equal(t, hash, hash2)
 				assert.Equal(t, cm.Data[utils.SpireAgentConfigKey], cm2.Data[utils.SpireAgentConfigKey])
@@ -563,13 +554,13 @@ func TestGenerateSpireAgentConfigMapConsistency(t *testing.T) {
 	}
 
 	// Generate the same config multiple times
-	cm1, hash1, err1 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, pkgtls.DefaultOperandTLSProfile())
+	cm1, hash1, err1 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, nil)
 	require.NoError(t, err1)
 
-	cm2, hash2, err2 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, pkgtls.DefaultOperandTLSProfile())
+	cm2, hash2, err2 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, nil)
 	require.NoError(t, err2)
 
-	cm3, hash3, err3 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, pkgtls.DefaultOperandTLSProfile())
+	cm3, hash3, err3 := generateSpireAgentConfigMap(spireAgentConfig, ztwim, nil)
 	require.NoError(t, err3)
 
 	// All results should be identical
@@ -621,7 +612,7 @@ func TestGenerateAgentConfigNilChecks(t *testing.T) {
 					BundleConfigMap: "spire-bundle",
 				},
 			}
-			result := generateAgentConfig(tt.cfg, ztwim, pkgtls.DefaultOperandTLSProfile())
+			result := generateAgentConfig(tt.cfg, ztwim, nil)
 
 			// Basic validation
 			assert.Contains(t, result, "agent")
@@ -654,7 +645,7 @@ func TestGenerateSpireAgentConfigMapEmptyLabels(t *testing.T) {
 		},
 	}
 
-	cm, hash, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, pkgtls.DefaultOperandTLSProfile())
+	cm, hash, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, nil)
 	require.NoError(t, err)
 	require.NotNil(t, cm)
 	assert.NotEmpty(t, hash)
@@ -998,7 +989,7 @@ func TestGenerateAgentConfigWithVerification(t *testing.T) {
 					BundleConfigMap: "spire-bundle",
 				},
 			}
-			result := generateAgentConfig(tt.cfg, ztwim, pkgtls.DefaultOperandTLSProfile())
+			result := generateAgentConfig(tt.cfg, ztwim, nil)
 
 			// Get the WorkloadAttestor plugin data
 			plugins := result["plugins"].(map[string]interface{})
@@ -1034,18 +1025,20 @@ func TestGenerateAgentConfig_ExperimentalTLSProfile(t *testing.T) {
 		},
 	}
 	profile := &pkgtls.OperandTLSProfile{
-		MinTLSVersion: "VersionTLS13",
-		Curves:        []string{"X25519"},
+		MinTLSVersion:    "VersionTLS13",
+		CurvePreferences: []string{"X25519"},
 	}
 
 	result := generateAgentConfig(cfg, ztwim, profile)
 
-	experimental, ok := result["experimental"].(map[string]interface{})
+	agent, ok := result["agent"].(map[string]interface{})
+	require.True(t, ok, "expected agent block in agent config")
+	experimental, ok := agent["experimental"].(map[string]interface{})
 	require.True(t, ok, "expected experimental block in agent config")
 	tlsProfile, ok := experimental["tlsProfile"].(map[string]interface{})
 	require.True(t, ok, "expected tlsProfile block in experimental config")
 	assert.Equal(t, "VersionTLS13", tlsProfile["minTLSVersion"])
-	assert.Equal(t, []string{"X25519"}, tlsProfile["curves"])
+	assert.Equal(t, "X25519", tlsProfile["curves"])
 }
 
 func TestSpireAgentConfigHashChangesWithTLSProfile(t *testing.T) {
@@ -1057,7 +1050,7 @@ func TestSpireAgentConfigHashChangesWithTLSProfile(t *testing.T) {
 		},
 	}
 
-	_, hashDefault, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, pkgtls.DefaultOperandTLSProfile())
+	_, hashDefault, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, nil)
 	require.NoError(t, err)
 	_, hashModern, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, &pkgtls.OperandTLSProfile{
 		MinTLSVersion: "VersionTLS13",
@@ -1065,4 +1058,40 @@ func TestSpireAgentConfigHashChangesWithTLSProfile(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEqual(t, hashDefault, hashModern, "expected config hash to change when TLS profile changes")
+}
+
+func fixedTestTLSProfile() *pkgtls.OperandTLSProfile {
+	return &pkgtls.OperandTLSProfile{
+		MinTLSVersion:    "VersionTLS12",
+		CipherSuites:     []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
+		CurvePreferences: []string{"X25519", "secp256r1"},
+	}
+}
+
+func TestSpireAgentConfigHashConsistentWithFixedTLSProfile(t *testing.T) {
+	spireAgentConfig := &v1alpha1.SpireAgent{
+		Spec: v1alpha1.SpireAgentSpec{
+			NodeAttestor: &v1alpha1.NodeAttestor{K8sPSATEnabled: "true"},
+		},
+	}
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain:     "example.org",
+			ClusterName:     "test-cluster",
+			BundleConfigMap: "spire-bundle",
+		},
+	}
+	profile := fixedTestTLSProfile()
+
+	cm1, hash1, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, profile)
+	require.NoError(t, err)
+	cm2, hash2, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, profile)
+	require.NoError(t, err)
+	cm3, hash3, err := generateSpireAgentConfigMap(spireAgentConfig, ztwim, profile)
+	require.NoError(t, err)
+
+	assert.Equal(t, hash1, hash2, "expected identical config hash for the same fixed TLS profile")
+	assert.Equal(t, hash2, hash3, "expected identical config hash for the same fixed TLS profile")
+	assert.Equal(t, cm1.Data[utils.SpireAgentConfigKey], cm2.Data[utils.SpireAgentConfigKey])
+	assert.Equal(t, cm2.Data[utils.SpireAgentConfigKey], cm3.Data[utils.SpireAgentConfigKey])
 }

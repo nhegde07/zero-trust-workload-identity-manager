@@ -28,7 +28,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
@@ -54,10 +53,11 @@ type SpireAgentReconciler struct {
 	eventRecorder record.EventRecorder
 	log           logr.Logger
 	scheme        *runtime.Scheme
+	tlsProfile    *pkgtls.OperandTLSProfile
 }
 
 // New returns a new Reconciler instance.
-func New(mgr ctrl.Manager) (*SpireAgentReconciler, error) {
+func New(mgr ctrl.Manager, tlsProfile *pkgtls.OperandTLSProfile) (*SpireAgentReconciler, error) {
 	c, err := customClient.NewCustomClient(mgr)
 	if err != nil {
 		return nil, err
@@ -68,6 +68,7 @@ func New(mgr ctrl.Manager) (*SpireAgentReconciler, error) {
 		eventRecorder: mgr.GetEventRecorderFor(utils.ZeroTrustWorkloadIdentityManagerSpireAgentControllerName),
 		log:           ctrl.Log.WithName(utils.ZeroTrustWorkloadIdentityManagerSpireAgentControllerName),
 		scheme:        mgr.GetScheme(),
+		tlsProfile:    tlsProfile,
 	}, nil
 }
 
@@ -150,15 +151,7 @@ func (r *SpireAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Reconcile ConfigMap
-	var apiServer configv1.APIServer
-	if err := r.ctrlClient.Get(ctx, types.NamespacedName{Name: "cluster"}, &apiServer); err != nil {
-		return ctrl.Result{}, err
-	}
-	tlsProfile, err := pkgtls.GetOperandTLSProfile(apiServer)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	configHash, err := r.reconcileConfigMap(ctx, &agent, statusMgr, &ztwim, createOnlyMode, &tlsProfile)
+	configHash, err := r.reconcileConfigMap(ctx, &agent, statusMgr, &ztwim, createOnlyMode, r.tlsProfile)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

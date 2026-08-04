@@ -38,7 +38,7 @@ func TestReconcileConfigMap(t *testing.T) {
 		fakeClient.GetReturns(kerrors.NewNotFound(schema.GroupResource{}, "spire-oidc-discovery-provider"))
 		fakeClient.CreateReturns(nil)
 
-		hash, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, pkgtls.DefaultOperandTLSProfile())
+		hash, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, nil)
 
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -62,7 +62,7 @@ func TestReconcileConfigMap(t *testing.T) {
 		fakeClient.GetReturns(kerrors.NewNotFound(schema.GroupResource{}, "spire-oidc-discovery-provider"))
 		fakeClient.CreateReturns(errors.New("create failed"))
 
-		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, pkgtls.DefaultOperandTLSProfile())
+		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, nil)
 
 		if err == nil {
 			t.Error("Expected error when Create fails")
@@ -79,7 +79,7 @@ func TestReconcileConfigMap(t *testing.T) {
 
 		fakeClient.GetReturns(errors.New("connection refused"))
 
-		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, pkgtls.DefaultOperandTLSProfile())
+		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, nil)
 
 		if err == nil {
 			t.Error("Expected error when Get fails")
@@ -99,7 +99,7 @@ func TestReconcileConfigMap(t *testing.T) {
 				Name:            "spire-oidc-discovery-provider",
 				Namespace:       utils.GetOperatorNamespace(),
 				ResourceVersion: "123",
-						Labels: map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
+				Labels:          map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
 			},
 			Data: map[string]string{
 				"oidc-discovery-provider.conf": "old-config",
@@ -114,7 +114,7 @@ func TestReconcileConfigMap(t *testing.T) {
 		}
 		fakeClient.UpdateReturns(nil)
 
-		hash, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, pkgtls.DefaultOperandTLSProfile())
+		hash, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, nil)
 
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -140,7 +140,7 @@ func TestReconcileConfigMap(t *testing.T) {
 				Name:            "spire-oidc-discovery-provider",
 				Namespace:       utils.GetOperatorNamespace(),
 				ResourceVersion: "123",
-						Labels: map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
+				Labels:          map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
 			},
 			Data: map[string]string{
 				"oidc-discovery-provider.conf": "old-config",
@@ -155,7 +155,7 @@ func TestReconcileConfigMap(t *testing.T) {
 		}
 		fakeClient.UpdateReturns(errors.New("update conflict"))
 
-		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, pkgtls.DefaultOperandTLSProfile())
+		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, nil)
 
 		if err == nil {
 			t.Error("Expected error when Update fails")
@@ -175,7 +175,7 @@ func TestReconcileConfigMap(t *testing.T) {
 				Name:            "spire-oidc-discovery-provider",
 				Namespace:       utils.GetOperatorNamespace(),
 				ResourceVersion: "123",
-						Labels: map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
+				Labels:          map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
 			},
 			Data: map[string]string{
 				"oidc-discovery-provider.conf": "old-config",
@@ -189,7 +189,7 @@ func TestReconcileConfigMap(t *testing.T) {
 			return nil
 		}
 
-		hash, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, true, pkgtls.DefaultOperandTLSProfile())
+		hash, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, true, nil)
 
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
@@ -216,7 +216,7 @@ func TestReconcileConfigMap(t *testing.T) {
 		ztwim := createOIDCTestZTWIM()
 		statusMgr := status.NewManager(fakeClient)
 
-		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, pkgtls.DefaultOperandTLSProfile())
+		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, nil)
 
 		if err == nil {
 			t.Error("Expected error when SetControllerReference fails")
@@ -231,7 +231,7 @@ func TestReconcileConfigMap(t *testing.T) {
 		ztwim := createOIDCTestZTWIM()
 		statusMgr := status.NewManager(fakeClient)
 
-		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, pkgtls.DefaultOperandTLSProfile())
+		_, err := reconciler.reconcileConfigMap(context.Background(), oidc, statusMgr, ztwim, false, nil)
 
 		if err == nil {
 			t.Error("Expected error when CR is nil")
@@ -243,7 +243,7 @@ func TestReconcileConfigMap(t *testing.T) {
 func TestGenerateOIDCConfigMapFromCR_NilConfig(t *testing.T) {
 	ztwim := createOIDCTestZTWIM()
 
-	_, err := generateOIDCConfigMapFromCR(nil, ztwim, pkgtls.DefaultOperandTLSProfile())
+	_, err := generateOIDCConfigMapFromCR(nil, ztwim, nil)
 
 	if err == nil {
 		t.Error("Expected error when config is nil")
@@ -308,7 +308,7 @@ func TestGenerateOIDCConfigMapFromCR(t *testing.T) {
 		}
 
 		// Act
-		result, err := generateOIDCConfigMapFromCR(cr, ztwim, pkgtls.DefaultOperandTLSProfile())
+		result, err := generateOIDCConfigMapFromCR(cr, ztwim, nil)
 
 		// Assert
 		require.NoError(t, err)
@@ -370,7 +370,7 @@ func TestGenerateOIDCConfigMapFromCR(t *testing.T) {
 		}
 
 		// Act
-		result, err := generateOIDCConfigMapFromCR(cr, ztwim, pkgtls.DefaultOperandTLSProfile())
+		result, err := generateOIDCConfigMapFromCR(cr, ztwim, nil)
 
 		// Assert
 		require.NoError(t, err)
@@ -419,7 +419,7 @@ func TestGenerateOIDCConfigMapFromCR(t *testing.T) {
 		}
 
 		// Act
-		result, err := generateOIDCConfigMapFromCR(cr, ztwim, pkgtls.DefaultOperandTLSProfile())
+		result, err := generateOIDCConfigMapFromCR(cr, ztwim, nil)
 
 		// Assert
 		require.NoError(t, err)
@@ -467,7 +467,7 @@ func TestOIDCConfigJSONFormatting(t *testing.T) {
 		},
 	}
 
-	result, err := generateOIDCConfigMapFromCR(cr, ztwim, pkgtls.DefaultOperandTLSProfile())
+	result, err := generateOIDCConfigMapFromCR(cr, ztwim, nil)
 	require.NoError(t, err)
 
 	oidcJSON := result.Data["oidc-discovery-provider.conf"]
@@ -482,7 +482,7 @@ func TestOIDCConfigJSONFormatting(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGenerateOIDCConfigMapFromCR_ExperimentalTLSProfile(t *testing.T) {
+func TestGenerateOIDCConfigMapFromCR_TLSProfile(t *testing.T) {
 	cr := &v1alpha1.SpireOIDCDiscoveryProvider{
 		Spec: v1alpha1.SpireOIDCDiscoveryProviderSpec{},
 	}
@@ -493,8 +493,8 @@ func TestGenerateOIDCConfigMapFromCR_ExperimentalTLSProfile(t *testing.T) {
 		},
 	}
 	profile := &pkgtls.OperandTLSProfile{
-		MinTLSVersion: "VersionTLS13",
-		Curves:        []string{"X25519"},
+		MinTLSVersion:    "VersionTLS13",
+		CurvePreferences: []string{"X25519"},
 	}
 
 	result, err := generateOIDCConfigMapFromCR(cr, ztwim, profile)
@@ -504,12 +504,10 @@ func TestGenerateOIDCConfigMapFromCR_ExperimentalTLSProfile(t *testing.T) {
 	err = json.Unmarshal([]byte(result.Data["oidc-discovery-provider.conf"]), &config)
 	require.NoError(t, err)
 
-	experimental, ok := config["experimental"].(map[string]interface{})
-	require.True(t, ok, "expected experimental block in OIDC config")
-	tlsProfile, ok := experimental["tlsProfile"].(map[string]interface{})
-	require.True(t, ok, "expected tlsProfile block in experimental config")
+	tlsProfile, ok := config["tlsProfile"].(map[string]interface{})
+	require.True(t, ok, "expected tlsProfile block in OIDC config")
 	assert.Equal(t, "VersionTLS13", tlsProfile["minTLSVersion"])
-	assert.Equal(t, []interface{}{"X25519"}, tlsProfile["curves"])
+	assert.Equal(t, []string{"X25519"}, tlsProfile["curve_preferences"])
 }
 
 func TestOIDCConfigHashChangesWithTLSProfile(t *testing.T) {
@@ -523,7 +521,7 @@ func TestOIDCConfigHashChangesWithTLSProfile(t *testing.T) {
 		},
 	}
 
-	defaultCM, err := generateOIDCConfigMapFromCR(cr, ztwim, pkgtls.DefaultOperandTLSProfile())
+	defaultCM, err := generateOIDCConfigMapFromCR(cr, ztwim, nil)
 	require.NoError(t, err)
 	modernCM, err := generateOIDCConfigMapFromCR(cr, ztwim, &pkgtls.OperandTLSProfile{
 		MinTLSVersion: "VersionTLS13",
@@ -535,4 +533,38 @@ func TestOIDCConfigHashChangesWithTLSProfile(t *testing.T) {
 		utils.GenerateMapHash(modernCM.Data),
 		"expected config hash to change when TLS profile changes",
 	)
+}
+
+func fixedTestTLSProfile() *pkgtls.OperandTLSProfile {
+	return &pkgtls.OperandTLSProfile{
+		MinTLSVersion:    "VersionTLS12",
+		CipherSuites:     []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
+		CurvePreferences: []string{"X25519", "secp256r1"},
+	}
+}
+
+func TestOIDCConfigHashConsistentWithFixedTLSProfile(t *testing.T) {
+	cr := &v1alpha1.SpireOIDCDiscoveryProvider{
+		Spec: v1alpha1.SpireOIDCDiscoveryProviderSpec{},
+	}
+	ztwim := &v1alpha1.ZeroTrustWorkloadIdentityManager{
+		Spec: v1alpha1.ZeroTrustWorkloadIdentityManagerSpec{
+			TrustDomain:     "example.org",
+			BundleConfigMap: "spire-bundle",
+		},
+	}
+	profile := fixedTestTLSProfile()
+
+	hash := func() string {
+		cm, err := generateOIDCConfigMapFromCR(cr, ztwim, profile)
+		require.NoError(t, err)
+		return utils.GenerateMapHash(cm.Data)
+	}
+
+	hash1 := hash()
+	hash2 := hash()
+	hash3 := hash()
+
+	assert.Equal(t, hash1, hash2, "expected identical OIDC config hash for the same fixed TLS profile")
+	assert.Equal(t, hash2, hash3, "expected identical OIDC config hash for the same fixed TLS profile")
 }

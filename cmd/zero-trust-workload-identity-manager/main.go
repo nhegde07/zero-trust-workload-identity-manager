@@ -280,13 +280,13 @@ func main() {
 		exitOnError(err, "unable to setup ztwim controller manager")
 	}
 
-	spireServerControllerManager, err := spireServerController.New(mgr)
+	spireServerControllerManager, err := spireServerController.New(mgr, tlsConfigResult.OperandTLSProfile)
 	exitOnError(err, "unable to set up spire server controller manager")
 	if err = spireServerControllerManager.SetupWithManager(mgr); err != nil {
 		exitOnError(err, "unable to setup spire server controller manager")
 	}
 
-	spireAgentControllerManager, err := spireAgentController.New(mgr)
+	spireAgentControllerManager, err := spireAgentController.New(mgr, tlsConfigResult.OperandTLSProfile)
 	if err != nil {
 		exitOnError(err, "unable to set up spire agent controller manager")
 	}
@@ -302,7 +302,7 @@ func main() {
 		exitOnError(err, "unable to setup spiffe csi driver controller manager")
 	}
 
-	spireOIDCDiscoveryProviderControllerManager, err := spireOIDCDiscoveryProviderController.New(mgr)
+	spireOIDCDiscoveryProviderControllerManager, err := spireOIDCDiscoveryProviderController.New(mgr, tlsConfigResult.OperandTLSProfile)
 	if err != nil {
 		exitOnError(err, "unable to set up spire OIDC discovery provider controller manager")
 	}

@@ -55,10 +55,11 @@ type SpireOidcDiscoveryProviderReconciler struct {
 	eventRecorder record.EventRecorder
 	log           logr.Logger
 	scheme        *runtime.Scheme
+	tlsProfile    *pkgtls.OperandTLSProfile
 }
 
 // New returns a new Reconciler instance.
-func New(mgr ctrl.Manager) (*SpireOidcDiscoveryProviderReconciler, error) {
+func New(mgr ctrl.Manager, tlsProfile *pkgtls.OperandTLSProfile) (*SpireOidcDiscoveryProviderReconciler, error) {
 	c, err := customClient.NewCustomClient(mgr)
 	if err != nil {
 		return nil, err
@@ -69,6 +70,7 @@ func New(mgr ctrl.Manager) (*SpireOidcDiscoveryProviderReconciler, error) {
 		eventRecorder: mgr.GetEventRecorderFor(utils.ZeroTrustWorkloadIdentityManagerSpireOIDCDiscoveryProviderControllerName),
 		log:           ctrl.Log.WithName(utils.ZeroTrustWorkloadIdentityManagerSpireOIDCDiscoveryProviderControllerName),
 		scheme:        mgr.GetScheme(),
+		tlsProfile:    tlsProfile,
 	}, nil
 }
 
@@ -148,8 +150,7 @@ func (r *SpireOidcDiscoveryProviderReconciler) Reconcile(ctx context.Context, re
 	}
 
 	// Reconcile ConfigMap
-	tlsProfile := pkgtls.FetchOperandTLSProfile(ctx, r.ctrlClient.GetClient())
-	configHash, err := r.reconcileConfigMap(ctx, &oidcDiscoveryProviderConfig, statusMgr, &ztwim, createOnlyMode, tlsProfile)
+	configHash, err := r.reconcileConfigMap(ctx, &oidcDiscoveryProviderConfig, statusMgr, &ztwim, createOnlyMode, r.tlsProfile)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

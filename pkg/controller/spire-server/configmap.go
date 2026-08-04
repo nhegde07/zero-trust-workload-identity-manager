@@ -45,11 +45,12 @@ const (
 	upstreamCACertFileName = "ca.crt"
 )
 
-type ControllerManagerConfigYAML struct {
+type ControllerManagerConfigYAMLWrapper struct {
 	Kind                                  string            `json:"kind"`
 	APIVersion                            string            `json:"apiVersion"`
 	Metadata                              metav1.ObjectMeta `json:"metadata"`
 	spiffev1alpha.ControllerManagerConfig `json:",inline"`
+	TLSProfile                            *pkgtls.OperandTLSProfile `json:"tlsProfile,omitempty"`
 }
 
 // reconcileSpireServerConfigMap reconciles the Spire Server ConfigMap
@@ -359,7 +360,7 @@ func generateServerConfMap(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.Zer
 		}
 	}
 
-	pkgtls.MergeExperimentalTLSProfile(configMap, tlsProfile)
+	insertOperandTLSProfileToSpireServerConfigMap(serverConfig, tlsProfile)
 
 	return configMap
 }
@@ -589,14 +590,15 @@ func buildDataStorePluginData(datastore v1alpha1.DataStore) map[string]interface
 	return pluginData
 }
 
-func generateControllerManagerConfig(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager) (*ControllerManagerConfigYAML, error) {
+func generateControllerManagerConfig(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsProfile *pkgtls.OperandTLSProfile) (*ControllerManagerConfigYAMLWrapper, error) {
 	if ztwim.Spec.TrustDomain == "" {
 		return nil, errors.New("trust_domain is empty")
 	}
 	if ztwim.Spec.ClusterName == "" {
 		return nil, errors.New("cluster name is empty")
 	}
-	return &ControllerManagerConfigYAML{
+
+	return &ControllerManagerConfigYAMLWrapper{
 		Kind:       "ControllerManagerConfig",
 		APIVersion: "spire.spiffe.io/v1alpha1",
 		Metadata: metav1.ObjectMeta{
@@ -633,28 +635,16 @@ func generateControllerManagerConfig(config *v1alpha1.SpireServerSpec, ztwim *v1
 				"openshift-*",
 			},
 		},
+		TLSProfile: tlsProfile,
 	}, nil
 }
 
 func generateSpireControllerManagerConfigYaml(config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsProfile *pkgtls.OperandTLSProfile) (string, error) {
-	controllerManagerConfig, err := generateControllerManagerConfig(config, ztwim)
+	controllerManagerConfig, err := generateControllerManagerConfig(config, ztwim, tlsProfile)
 	if err != nil {
 		return "", err
 	}
-
-	configJSON, err := json.Marshal(controllerManagerConfig)
-	if err != nil {
-		return "", err
-	}
-
-	var configMap map[string]interface{}
-	if err := json.Unmarshal(configJSON, &configMap); err != nil {
-		return "", err
-	}
-
-	pkgtls.MergeExperimentalTLSProfile(configMap, tlsProfile)
-
-	configData, err := yaml.Marshal(configMap)
+	configData, err := yaml.Marshal(controllerManagerConfig)
 	if err != nil {
 		return "", err
 	}
@@ -685,4 +675,16 @@ func generateSpireBundleConfigMap(config *v1alpha1.SpireServerSpec, ztwim *v1alp
 			Labels:    utils.SpireServerLabels(config.Labels),
 		},
 	}, nil
+}
+
+func insertOperandTLSProfileToSpireServerConfigMap(serverConfig map[string]interface{}, tlsProfile *pkgtls.OperandTLSProfile) {
+	if tlsProfile == nil {
+		return
+	}
+
+	serverConfig["tls_profile"] = map[string]interface{}{
+		"cipher_suites":     tlsProfile.CipherSuites,
+		"curve_preferences": tlsProfile.CurvePreferences,
+		"min_tls_version":   tlsProfile.MinTLSVersion,
+	}
 }

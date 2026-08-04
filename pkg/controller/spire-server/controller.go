@@ -57,10 +57,11 @@ type SpireServerReconciler struct {
 	eventRecorder record.EventRecorder
 	log           logr.Logger
 	scheme        *runtime.Scheme
+	tlsProfile    *pkgtls.OperandTLSProfile
 }
 
 // New returns a new Reconciler instance.
-func New(mgr ctrl.Manager) (*SpireServerReconciler, error) {
+func New(mgr ctrl.Manager, tlsProfile *pkgtls.OperandTLSProfile) (*SpireServerReconciler, error) {
 	c, err := customClient.NewCustomClient(mgr)
 	if err != nil {
 		return nil, err
@@ -71,6 +72,7 @@ func New(mgr ctrl.Manager) (*SpireServerReconciler, error) {
 		eventRecorder: mgr.GetEventRecorderFor(utils.ZeroTrustWorkloadIdentityManagerSpireServerControllerName),
 		log:           ctrl.Log.WithName(utils.ZeroTrustWorkloadIdentityManagerSpireServerControllerName),
 		scheme:        mgr.GetScheme(),
+		tlsProfile:    tlsProfile,
 	}, nil
 }
 
@@ -160,14 +162,13 @@ func (r *SpireServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Reconcile ConfigMaps
-	tlsProfile := pkgtls.FetchOperandTLSProfile(ctx, r.ctrlClient.GetClient())
-	spireServerConfigMapHash, err := r.reconcileSpireServerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode, tlsProfile)
+	spireServerConfigMapHash, err := r.reconcileSpireServerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode, r.tlsProfile)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Reconcile Spire Controller Manager ConfigMap
-	spireControllerManagerConfigMapHash, err := r.reconcileSpireControllerManagerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode, tlsProfile)
+	spireControllerManagerConfigMapHash, err := r.reconcileSpireControllerManagerConfigMap(ctx, &server, statusMgr, &ztwim, createOnlyMode, r.tlsProfile)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
