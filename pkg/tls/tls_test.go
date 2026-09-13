@@ -43,17 +43,6 @@ func testScheme(t *testing.T) *runtime.Scheme {
 	return scheme
 }
 
-func defaultIntermediateProfile(t *testing.T) configv1.TLSProfileSpec {
-	t.Helper()
-
-	profile, err := openshifttls.GetTLSProfileSpec(nil)
-	if err != nil {
-		t.Fatalf("GetTLSProfileSpec(nil) error = %v", err)
-	}
-
-	return profile
-}
-
 func applyTLSConfig(t *testing.T, tlsConfig func(*tls.Config)) *tls.Config {
 	t.Helper()
 
@@ -127,7 +116,7 @@ func newAPIServerTLSConfigTestServer(t *testing.T, apiServer *configv1.APIServer
 }
 
 func TestFetchAPIServerTLSConfig_honorsProfileRegardlessOfAdherence(t *testing.T) {
-	intermediateProfile := defaultIntermediateProfile(t)
+	intermediateProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 	k8sClient := newAPIServerTestClient(t, &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{Name: openshifttls.APIServerName},
 		Spec: configv1.APIServerSpec{
@@ -155,10 +144,7 @@ func TestFetchAPIServerTLSConfig_honorsProfileRegardlessOfAdherence(t *testing.T
 
 func TestGetOperatorTLSConfig_oldProfile(t *testing.T) {
 	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
-	defaultProfile, err := openshifttls.GetTLSProfileSpec(nil)
-	if err != nil {
-		t.Fatalf("GetTLSProfileSpec(nil) error = %v", err)
-	}
+	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 
 	operatorTLSConfig := getOperatorTLSConfig(*oldProfile, logr.Discard())
 	tlsCfg := applyTLSConfig(t, operatorTLSConfig)
@@ -181,10 +167,7 @@ func TestGetOperatorTLSConfig_oldProfile(t *testing.T) {
 func TestGetOperandTLSConfig(t *testing.T) {
 	setupLog := logr.Discard()
 	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
-	defaultProfile, err := openshifttls.GetTLSProfileSpec(nil)
-	if err != nil {
-		t.Fatalf("GetTLSProfileSpec(nil) error = %v", err)
-	}
+	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 
 	oldOperandConfig := getOperandTLSConfig(*oldProfile, setupLog)
 	if oldOperandConfig == nil {
@@ -217,7 +200,7 @@ func TestGetOperandTLSConfig(t *testing.T) {
 
 func TestFetchAPIServerTLSConfig_oldProfilePreservesResolvedInitialSpec(t *testing.T) {
 	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
-	defaultProfile := defaultIntermediateProfile(t)
+	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 	k8sClient := newAPIServerTestClient(t, &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{Name: openshifttls.APIServerName},
 		Spec: configv1.APIServerSpec{
@@ -243,7 +226,7 @@ func TestFetchAPIServerTLSConfig_oldProfilePreservesResolvedInitialSpec(t *testi
 }
 
 func TestFetchAPIServerTLSConfig_invalidCustomFallsBackToDefault(t *testing.T) {
-	defaultProfile := defaultIntermediateProfile(t)
+	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 	k8sClient := newAPIServerTestClient(t, &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{Name: openshifttls.APIServerName},
 		Spec: configv1.APIServerSpec{
@@ -266,7 +249,7 @@ func TestFetchAPIServerTLSConfig_invalidCustomFallsBackToDefault(t *testing.T) {
 }
 
 func TestFetchAPIServerTLSConfig_intermediateProfile(t *testing.T) {
-	intermediateProfile := defaultIntermediateProfile(t)
+	intermediateProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 	k8sClient := newAPIServerTestClient(t, &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{Name: openshifttls.APIServerName},
 		Spec: configv1.APIServerSpec{
@@ -292,7 +275,7 @@ func TestFetchAPIServerTLSConfig_intermediateProfile(t *testing.T) {
 }
 
 func TestFetchAPIServerTLSConfig_notFoundSeedsDefaultBaseline(t *testing.T) {
-	defaultProfile := defaultIntermediateProfile(t)
+	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 	k8sClient := newAPIServerTestClient(t, nil, http.StatusNotFound)
 
 	result, err := FetchAPIServerTLSConfig(context.Background(), k8sClient, logr.Discard())

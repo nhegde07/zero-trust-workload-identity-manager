@@ -224,7 +224,7 @@ func TestReportTLSResolutionFailure_updatesReadyOnClusterCR(t *testing.T) {
 		},
 	})
 
-	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard(), errors.New("apiserver forbidden"))
+	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard())
 
 	ready := getZTWIMReadyCondition(t, k8sClient)
 	if ready == nil {
@@ -264,7 +264,7 @@ func TestReportTLSResolutionFailure_preservesOtherConditions(t *testing.T) {
 		},
 	})
 
-	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard(), errors.New("timeout"))
+	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard())
 
 	var ztwim v1alpha1.ZeroTrustWorkloadIdentityManager
 	if err := k8sClient.Get(context.Background(), client.ObjectKey{Name: ztwimClusterName}, &ztwim); err != nil {
@@ -283,7 +283,7 @@ func TestReportTLSResolutionFailure_preservesOtherConditions(t *testing.T) {
 func TestReportTLSResolutionFailure_clusterCRNotFoundIsNoOp(t *testing.T) {
 	k8sClient := newZTWIMStatusTestClient(t, nil)
 
-	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard(), errors.New("tls fetch failed"))
+	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard())
 
 	var ztwim v1alpha1.ZeroTrustWorkloadIdentityManager
 	err := k8sClient.Get(context.Background(), client.ObjectKey{Name: ztwimClusterName}, &ztwim)
@@ -316,7 +316,7 @@ func TestReportTLSResolutionFailure_getErrorLeavesStatusUnchanged(t *testing.T) 
 		),
 	}
 
-	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard(), errors.New("tls fetch failed"))
+	ReportTLSResolutionFailure(context.Background(), k8sClient, logr.Discard())
 
 	ready := getZTWIMReadyCondition(t, inner)
 	if ready == nil || ready.Status != metav1.ConditionTrue || ready.Message != "operands ready" {

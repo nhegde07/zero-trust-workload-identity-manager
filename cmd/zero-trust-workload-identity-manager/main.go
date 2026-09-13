@@ -173,7 +173,7 @@ func main() {
 
 	tlsConfig, err := pkgtls.FetchAPIServerTLSConfig(ctx, k8sClient, setupLog)
 	if err != nil {
-		pkgtls.ReportTLSResolutionFailure(ctx, k8sClient, setupLog, err)
+		pkgtls.ReportTLSResolutionFailure(ctx, k8sClient, setupLog)
 		exitOnError(err, "unable to resolve TLS configuration")
 	}
 

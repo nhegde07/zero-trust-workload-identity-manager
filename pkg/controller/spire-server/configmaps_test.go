@@ -2080,6 +2080,7 @@ func TestSpireServerConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 	config := createValidConfig()
 	ztwim := tlsHashTestServerZTWIM()
 
+	// Test that hash is consistent as long as the operand TLS config is the same
 	tests := []struct {
 		name      string
 		tlsConfig *pkgtls.OperandTLSConfig
@@ -2101,6 +2102,7 @@ func TestSpireServerConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 		})
 	}
 
+	// Test that hash is different if the operand TLS config is different
 	nilHash := serverConfigHash(t, config, ztwim, nil)
 	partialHash := serverConfigHash(t, config, ztwim, partialOperandTLSConfig())
 	fullHash := serverConfigHash(t, config, ztwim, fullOperandTLSConfig())
@@ -2114,6 +2116,7 @@ func TestSpireControllerManagerConfigHashConsistentWithOperandTLSConfig(t *testi
 	config := createValidConfig()
 	ztwim := tlsHashTestServerZTWIM()
 
+	// Test that hash is consistent as long as the operand TLS config is the same
 	tests := []struct {
 		name      string
 		tlsConfig *pkgtls.OperandTLSConfig
@@ -2135,6 +2138,7 @@ func TestSpireControllerManagerConfigHashConsistentWithOperandTLSConfig(t *testi
 		})
 	}
 
+	// Test that hash is different if the operand TLS config is different
 	nilHash := controllerManagerConfigHash(t, config, ztwim, nil)
 	partialHash := controllerManagerConfigHash(t, config, ztwim, partialOperandTLSConfig())
 	fullHash := controllerManagerConfigHash(t, config, ztwim, fullOperandTLSConfig())

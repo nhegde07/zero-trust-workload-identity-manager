@@ -29,7 +29,7 @@ import (
 const ztwimClusterName = "cluster"
 
 // ReportTLSResolutionFailure best-effort updates Ready=False on the ZTWIM cluster CR.
-func ReportTLSResolutionFailure(ctx context.Context, c client.Client, log logr.Logger, err error) {
+func ReportTLSResolutionFailure(ctx context.Context, c client.Client, log logr.Logger) {
 	var ztwim v1alpha1.ZeroTrustWorkloadIdentityManager
 	key := types.NamespacedName{Name: ztwimClusterName}
 	if getErr := c.Get(ctx, key, &ztwim); getErr != nil {

@@ -100,7 +100,7 @@ func TestReconcileConfigMap(t *testing.T) {
 				Name:            "spire-oidc-discovery-provider",
 				Namespace:       utils.GetOperatorNamespace(),
 				ResourceVersion: "123",
-						Labels: map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
+				Labels:          map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
 			},
 			Data: map[string]string{
 				"oidc-discovery-provider.conf": "old-config",
@@ -141,7 +141,7 @@ func TestReconcileConfigMap(t *testing.T) {
 				Name:            "spire-oidc-discovery-provider",
 				Namespace:       utils.GetOperatorNamespace(),
 				ResourceVersion: "123",
-						Labels: map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
+				Labels:          map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
 			},
 			Data: map[string]string{
 				"oidc-discovery-provider.conf": "old-config",
@@ -176,7 +176,7 @@ func TestReconcileConfigMap(t *testing.T) {
 				Name:            "spire-oidc-discovery-provider",
 				Namespace:       utils.GetOperatorNamespace(),
 				ResourceVersion: "123",
-						Labels: map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
+				Labels:          map[string]string{utils.AppManagedByLabelKey: utils.AppManagedByLabelValue},
 			},
 			Data: map[string]string{
 				"oidc-discovery-provider.conf": "old-config",
@@ -513,6 +513,7 @@ func TestOIDCConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 	cr := createOIDCTestCR()
 	ztwim := createOIDCTestZTWIM()
 
+	// Test that hash is consistent as long as the operand TLS config is the same
 	tests := []struct {
 		name      string
 		tlsConfig *pkgtls.OperandTLSConfig
@@ -533,6 +534,7 @@ func TestOIDCConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 		})
 	}
 
+	// Test that hash is different if the operand TLS config is different
 	nilHash := oidcConfigHash(t, cr, ztwim, nil)
 	partialHash := oidcConfigHash(t, cr, ztwim, partialOperandTLSConfig())
 	fullHash := oidcConfigHash(t, cr, ztwim, fullOperandTLSConfig())

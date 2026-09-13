@@ -1069,6 +1069,7 @@ func TestSpireAgentConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 		{name: "full operand profile", tlsConfig: fullOperandTLSConfig()},
 	}
 
+	// Test  that hash is consistent as long as the operand TLS config is the same
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, hash1, err := generateSpireAgentConfigMap(agent, ztwim, tt.tlsConfig)
@@ -1083,6 +1084,7 @@ func TestSpireAgentConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 		})
 	}
 
+	// Test that hash is different if the operand TLS config is different
 	_, nilHash, err := generateSpireAgentConfigMap(agent, ztwim, nil)
 	require.NoError(t, err)
 	_, partialHash, err := generateSpireAgentConfigMap(agent, ztwim, partialOperandTLSConfig())
