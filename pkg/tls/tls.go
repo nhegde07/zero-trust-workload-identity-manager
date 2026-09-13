@@ -95,7 +95,7 @@ func getOperatorTLSConfig(tlsProfileSpec configv1.TLSProfileSpec, setupLog logr.
 // getOperandTLSConfig converts a cluster TLS profile spec into operand-facing TLS settings.
 func getOperandTLSConfig(tlsProfileSpec configv1.TLSProfileSpec, setupLog logr.Logger) *OperandTLSConfig {
 	var operandTLSCfg *OperandTLSConfig
-	// If the minimum TLS version is less than 1.2, return nil. SPIRE does not support TLS 1.0 and TLS 1.1.
+	// If the minimum TLS version is less than 1.2, return default TLS profile. SPIRE does not support TLS 1.0 and TLS 1.1.
 	if tlsProfileSpec.MinTLSVersion == configv1.VersionTLS10 || tlsProfileSpec.MinTLSVersion == configv1.VersionTLS11 {
 		setupLog.Info("TLS profile specifies a minimum TLS version that is less than 1.2. Returning default TLS Profile for operand")
 		defaultTLSProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
