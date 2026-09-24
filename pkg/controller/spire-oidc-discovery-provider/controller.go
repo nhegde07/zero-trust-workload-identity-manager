@@ -27,12 +27,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	customClient "github.com/openshift/zero-trust-workload-identity-manager/pkg/client"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
-	pkgtls "github.com/openshift/zero-trust-workload-identity-manager/pkg/tls"
 )
 
 const spireOidcDeploymentSpireOidcConfigHashAnnotationKey = "ztwim.openshift.io/spire-oidc-discovery-provider-config-hash"
@@ -55,11 +55,11 @@ type SpireOidcDiscoveryProviderReconciler struct {
 	eventRecorder record.EventRecorder
 	log           logr.Logger
 	scheme        *runtime.Scheme
-	tlsConfig     *pkgtls.OperandTLSConfig
+	tlsProfileSpec *configv1.TLSProfileSpec
 }
 
 // New returns a new Reconciler instance.
-func New(mgr ctrl.Manager, tlsConfig *pkgtls.OperandTLSConfig) (*SpireOidcDiscoveryProviderReconciler, error) {
+func New(mgr ctrl.Manager, tlsProfileSpec *configv1.TLSProfileSpec) (*SpireOidcDiscoveryProviderReconciler, error) {
 	c, err := customClient.NewCustomClient(mgr)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func New(mgr ctrl.Manager, tlsConfig *pkgtls.OperandTLSConfig) (*SpireOidcDiscov
 		eventRecorder: mgr.GetEventRecorderFor(utils.ZeroTrustWorkloadIdentityManagerSpireOIDCDiscoveryProviderControllerName),
 		log:           ctrl.Log.WithName(utils.ZeroTrustWorkloadIdentityManagerSpireOIDCDiscoveryProviderControllerName),
 		scheme:        mgr.GetScheme(),
-		tlsConfig:     tlsConfig,
+		tlsProfileSpec: tlsProfileSpec,
 	}, nil
 }
 
@@ -150,7 +150,7 @@ func (r *SpireOidcDiscoveryProviderReconciler) Reconcile(ctx context.Context, re
 	}
 
 	// Reconcile ConfigMap
-	configHash, err := r.reconcileConfigMap(ctx, &oidcDiscoveryProviderConfig, statusMgr, &ztwim, r.tlsConfig, createOnlyMode)
+	configHash, err := r.reconcileConfigMap(ctx, &oidcDiscoveryProviderConfig, statusMgr, &ztwim, r.tlsProfileSpec, createOnlyMode)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

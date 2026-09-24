@@ -14,7 +14,6 @@ import (
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/client/fakes"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
-	pkgtls "github.com/openshift/zero-trust-workload-identity-manager/pkg/tls"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -483,27 +482,26 @@ func TestOIDCConfigJSONFormatting(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func partialOperandTLSConfig() *pkgtls.OperandTLSConfig {
-	return &pkgtls.OperandTLSConfig{
+func partialTLSProfileSpec() *configv1.TLSProfileSpec {
+	return &configv1.TLSProfileSpec{
 		MinTLSVersion: configv1.VersionTLS12,
 	}
 }
 
-func fullOperandTLSConfig() *pkgtls.OperandTLSConfig {
-	return &pkgtls.OperandTLSConfig{
+func fullTLSProfileSpec() *configv1.TLSProfileSpec {
+	return &configv1.TLSProfileSpec{
 		MinTLSVersion: configv1.VersionTLS13,
-		CipherSuites: []string{
+		Ciphers: []string{
 			"TLS_AES_128_GCM_SHA256",
-			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"ECDHE-RSA-AES128-GCM-SHA256",
 		},
-		CurvePreferences: []string{"X25519", "secp256r1"},
 	}
 }
 
-func oidcConfigHash(t *testing.T, cr *v1alpha1.SpireOIDCDiscoveryProvider, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsConfig *pkgtls.OperandTLSConfig) string {
+func oidcConfigHash(t *testing.T, cr *v1alpha1.SpireOIDCDiscoveryProvider, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsProfileSpec *configv1.TLSProfileSpec) string {
 	t.Helper()
 
-	cm, err := generateOIDCConfigMapFromCR(cr, ztwim, tlsConfig)
+	cm, err := generateOIDCConfigMapFromCR(cr, ztwim, tlsProfileSpec)
 	require.NoError(t, err)
 
 	return utils.GenerateConfigHashFromString(cm.Data["oidc-discovery-provider.conf"])
@@ -515,19 +513,19 @@ func TestOIDCConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 
 	// Test that hash is consistent as long as the operand TLS config is the same
 	tests := []struct {
-		name      string
-		tlsConfig *pkgtls.OperandTLSConfig
+		name           string
+		tlsProfileSpec *configv1.TLSProfileSpec
 	}{
-		{name: "nil operand profile", tlsConfig: nil},
-		{name: "partial operand profile", tlsConfig: partialOperandTLSConfig()},
-		{name: "full operand profile", tlsConfig: fullOperandTLSConfig()},
+		{name: "nil operand profile", tlsProfileSpec: nil},
+		{name: "partial operand profile", tlsProfileSpec: partialTLSProfileSpec()},
+		{name: "full operand profile", tlsProfileSpec: fullTLSProfileSpec()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hash1 := oidcConfigHash(t, cr, ztwim, tt.tlsConfig)
-			hash2 := oidcConfigHash(t, cr, ztwim, tt.tlsConfig)
-			hash3 := oidcConfigHash(t, cr, ztwim, tt.tlsConfig)
+			hash1 := oidcConfigHash(t, cr, ztwim, tt.tlsProfileSpec)
+			hash2 := oidcConfigHash(t, cr, ztwim, tt.tlsProfileSpec)
+			hash3 := oidcConfigHash(t, cr, ztwim, tt.tlsProfileSpec)
 
 			assert.Equal(t, hash1, hash2)
 			assert.Equal(t, hash2, hash3)
@@ -536,8 +534,8 @@ func TestOIDCConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 
 	// Test that hash is different if the operand TLS config is different
 	nilHash := oidcConfigHash(t, cr, ztwim, nil)
-	partialHash := oidcConfigHash(t, cr, ztwim, partialOperandTLSConfig())
-	fullHash := oidcConfigHash(t, cr, ztwim, fullOperandTLSConfig())
+	partialHash := oidcConfigHash(t, cr, ztwim, partialTLSProfileSpec())
+	fullHash := oidcConfigHash(t, cr, ztwim, fullTLSProfileSpec())
 
 	assert.NotEqual(t, nilHash, partialHash)
 	assert.NotEqual(t, partialHash, fullHash)

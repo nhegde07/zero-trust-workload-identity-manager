@@ -134,19 +134,18 @@ func TestFetchAPIServerTLSConfig_honorsProfileRegardlessOfAdherence(t *testing.T
 	if !reflect.DeepEqual(result.InitialTLSProfileSpec, intermediateProfile) {
 		t.Fatalf("InitialTLSProfileSpec = %#v, want %#v", result.InitialTLSProfileSpec, intermediateProfile)
 	}
-	if result.Resolved.OperatorTLSConfig == nil {
+	if result.OperatorGoTLSConfig == nil {
 		t.Fatal("expected operator TLS config regardless of tlsAdherence")
 	}
-	if result.Resolved.OperandTLSConfig == nil {
-		t.Fatal("expected operand TLS config regardless of tlsAdherence")
+	if injectable := GetTLSConfigForSpiffeSpire(&result.InitialTLSProfileSpec); injectable == nil {
+		t.Fatal("expected injectable operand TLS config regardless of tlsAdherence")
 	}
 }
 
-func TestGetOperatorTLSConfig_oldProfile(t *testing.T) {
+func TestOperatorGoTLSConfig_oldProfile(t *testing.T) {
 	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
-	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 
-	operatorTLSConfig := getOperatorTLSConfig(*oldProfile, logr.Discard())
+	operatorTLSConfig := operatorGoTLSConfig(*oldProfile, logr.Discard())
 	tlsCfg := applyTLSConfig(t, operatorTLSConfig)
 	if tlsCfg.MinVersion != libgocrypto.TLSVersionOrDie(string(oldProfile.MinTLSVersion)) {
 		t.Fatalf("MinVersion = %d, want %d", tlsCfg.MinVersion, libgocrypto.TLSVersionOrDie(string(oldProfile.MinTLSVersion)))
@@ -154,51 +153,37 @@ func TestGetOperatorTLSConfig_oldProfile(t *testing.T) {
 	if len(tlsCfg.CipherSuites) == 0 {
 		t.Fatal("expected cipher suites for Old profile on operator TLS")
 	}
-
-	operandConfig := getOperandTLSConfig(*oldProfile, logr.Discard())
-	if operandConfig == nil {
-		t.Fatal("expected default operand config for Old profile")
-	}
-	if operandConfig.MinTLSVersion != defaultProfile.MinTLSVersion {
-		t.Fatalf("operand MinTLSVersion = %q, want default %q", operandConfig.MinTLSVersion, defaultProfile.MinTLSVersion)
-	}
 }
 
-func TestGetOperandTLSConfig(t *testing.T) {
-	setupLog := logr.Discard()
+func TestInjectTLSConfigMap_operandProfileFallback(t *testing.T) {
 	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
 	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 
-	oldOperandConfig := getOperandTLSConfig(*oldProfile, setupLog)
-	if oldOperandConfig == nil {
-		t.Fatal("expected default operand config for Old profile")
-	}
-	if oldOperandConfig.MinTLSVersion != defaultProfile.MinTLSVersion {
-		t.Fatalf("operand MinTLSVersion = %q, want default %q", oldOperandConfig.MinTLSVersion, defaultProfile.MinTLSVersion)
+	oldInjectable := GetTLSConfigForSpiffeSpire(oldProfile)
+	if oldInjectable["min_tls_version"] != defaultProfile.MinTLSVersion {
+		t.Fatalf("operand MinTLSVersion = %q, want default %q", oldInjectable["min_tls_version"], defaultProfile.MinTLSVersion)
 	}
 
-	customConfig := getOperandTLSConfig(configv1.TLSProfileSpec{
+	customSpec := &configv1.TLSProfileSpec{
 		Ciphers: []string{
 			"ECDHE-RSA-AES128-GCM-SHA256",
 			"ECDHE-RSA-AES256-GCM-SHA384",
 		},
 		MinTLSVersion: configv1.VersionTLS12,
-	}, setupLog)
-	if customConfig == nil {
-		t.Fatal("expected non-nil operand config")
 	}
-	if customConfig.MinTLSVersion != configv1.VersionTLS12 {
-		t.Fatalf("MinTLSVersion = %q, want %q", customConfig.MinTLSVersion, configv1.VersionTLS12)
+	customInjectable := GetTLSConfigForSpiffeSpire(customSpec)
+	if customInjectable["min_tls_version"] != configv1.VersionTLS12 {
+		t.Fatalf("MinTLSVersion = %q, want %q", customInjectable["min_tls_version"], configv1.VersionTLS12)
 	}
-	if !reflect.DeepEqual(customConfig.CipherSuites, []string{
+	if !reflect.DeepEqual(customInjectable["cipher_suites"], []string{
 		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 		"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
 	}) {
-		t.Fatalf("CipherSuites = %q, want IANA cipher names", customConfig.CipherSuites)
+		t.Fatalf("CipherSuites = %q, want IANA cipher names", customInjectable["cipher_suites"])
 	}
 }
 
-func TestFetchAPIServerTLSConfig_oldProfilePreservesResolvedInitialSpec(t *testing.T) {
+func TestFetchAPIServerTLSConfig_oldProfilePreservesInitialSpec(t *testing.T) {
 	oldProfile := configv1.TLSProfiles[configv1.TLSProfileOldType]
 	defaultProfile := *configv1.TLSProfiles[libgocrypto.DefaultTLSProfileType]
 	k8sClient := newAPIServerTestClient(t, &configv1.APIServer{
@@ -217,11 +202,12 @@ func TestFetchAPIServerTLSConfig_oldProfilePreservesResolvedInitialSpec(t *testi
 	if !reflect.DeepEqual(result.InitialTLSProfileSpec, *oldProfile) {
 		t.Fatalf("InitialTLSProfileSpec = %#v, want resolved Old profile %#v", result.InitialTLSProfileSpec, *oldProfile)
 	}
-	if result.Resolved.OperandTLSConfig == nil {
-		t.Fatal("expected operand TLS config from default profile")
+	injectable := GetTLSConfigForSpiffeSpire(&result.InitialTLSProfileSpec)
+	if injectable == nil {
+		t.Fatal("expected injectable operand TLS config from default profile")
 	}
-	if result.Resolved.OperandTLSConfig.MinTLSVersion != defaultProfile.MinTLSVersion {
-		t.Fatalf("operand MinTLSVersion = %q, want default %q", result.Resolved.OperandTLSConfig.MinTLSVersion, defaultProfile.MinTLSVersion)
+	if injectable["min_tls_version"] != defaultProfile.MinTLSVersion {
+		t.Fatalf("operand MinTLSVersion = %q, want default %q", injectable["min_tls_version"], defaultProfile.MinTLSVersion)
 	}
 }
 
@@ -243,8 +229,11 @@ func TestFetchAPIServerTLSConfig_invalidCustomFallsBackToDefault(t *testing.T) {
 	if !reflect.DeepEqual(result.InitialTLSProfileSpec, defaultProfile) {
 		t.Fatalf("InitialTLSProfileSpec = %#v, want default Intermediate %#v", result.InitialTLSProfileSpec, defaultProfile)
 	}
-	if result.Resolved.OperatorTLSConfig == nil || result.Resolved.OperandTLSConfig == nil {
-		t.Fatal("expected operator and operand TLS config from default profile")
+	if result.OperatorGoTLSConfig == nil {
+		t.Fatal("expected operator TLS config from default profile")
+	}
+	if GetTLSConfigForSpiffeSpire(&result.InitialTLSProfileSpec) == nil {
+		t.Fatal("expected injectable operand TLS config from default profile")
 	}
 }
 
@@ -266,11 +255,11 @@ func TestFetchAPIServerTLSConfig_intermediateProfile(t *testing.T) {
 	if !reflect.DeepEqual(result.InitialTLSProfileSpec, intermediateProfile) {
 		t.Fatalf("InitialTLSProfileSpec = %#v, want %#v", result.InitialTLSProfileSpec, intermediateProfile)
 	}
-	if result.Resolved.OperatorTLSConfig == nil {
+	if result.OperatorGoTLSConfig == nil {
 		t.Fatal("expected operator TLS config")
 	}
-	if result.Resolved.OperandTLSConfig == nil {
-		t.Fatal("expected operand TLS config")
+	if GetTLSConfigForSpiffeSpire(&result.InitialTLSProfileSpec) == nil {
+		t.Fatal("expected injectable operand TLS config")
 	}
 }
 
@@ -282,11 +271,11 @@ func TestFetchAPIServerTLSConfig_notFoundSeedsDefaultBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchAPIServerTLSConfig() error = %v", err)
 	}
-	if result.Resolved.OperatorTLSConfig == nil {
+	if result.OperatorGoTLSConfig == nil {
 		t.Fatal("expected operator TLS config seeded from default Intermediate profile on 404")
 	}
-	if result.Resolved.OperandTLSConfig == nil {
-		t.Fatal("expected operand TLS config seeded from default Intermediate profile on 404")
+	if GetTLSConfigForSpiffeSpire(&result.InitialTLSProfileSpec) == nil {
+		t.Fatal("expected injectable operand TLS config seeded from default Intermediate profile on 404")
 	}
 	if !reflect.DeepEqual(result.InitialTLSProfileSpec, defaultProfile) {
 		t.Fatalf("InitialTLSProfileSpec = %#v, want default Intermediate baseline %#v", result.InitialTLSProfileSpec, defaultProfile)
@@ -302,32 +291,40 @@ func TestFetchAPIServerTLSConfig_getFailureReturnsError(t *testing.T) {
 	}
 }
 
-func TestGetInjectableTLSConfigForOperand(t *testing.T) {
-	if got := GetInjectableTLSConfigForOperand(nil); got != nil {
+func TestGetTLSConfigForSpiffeSpire(t *testing.T) {
+	if got := GetTLSConfigForSpiffeSpire(nil); got != nil {
 		t.Fatalf("expected nil injectable config, got %#v", got)
 	}
 
-	partial := GetInjectableTLSConfigForOperand(&OperandTLSConfig{MinTLSVersion: configv1.VersionTLS12})
-	if len(partial) != 1 || partial["min_tls_version"] != configv1.VersionTLS12 {
-		t.Fatalf("expected partial injectable config, got %#v", partial)
+	spireConfigPartial := GetTLSConfigForSpiffeSpire(&configv1.TLSProfileSpec{MinTLSVersion: configv1.VersionTLS12})
+	if len(spireConfigPartial) != 1 || spireConfigPartial["min_tls_version"] != configv1.VersionTLS12 {
+		t.Fatalf("expected partial SPIRE TLS config, got %#v", spireConfigPartial)
 	}
 
-	full := GetInjectableTLSConfigForOperand(&OperandTLSConfig{
-		MinTLSVersion:    configv1.VersionTLS13,
-		CipherSuites:     []string{"TLS_AES_128_GCM_SHA256"},
-		CurvePreferences: []string{"X25519"},
+	spireConfig := GetTLSConfigForSpiffeSpire(&configv1.TLSProfileSpec{
+		MinTLSVersion: configv1.VersionTLS13,
+		Ciphers:       []string{"TLS_AES_128_GCM_SHA256"},
 	})
-	if len(full) != 3 {
-		t.Fatalf("expected full injectable config with 3 fields, got %#v", full)
+	if len(spireConfig) != 2 {
+		t.Fatalf("expected SPIRE TLS config with 2 fields, got %#v", spireConfig)
 	}
-
-	if got := GetInjectableTLSConfigForOperand(&OperandTLSConfig{}); got != nil {
-		t.Fatalf("expected nil injectable config for empty operand profile, got %#v", got)
+	if spireConfig["min_tls_version"] != configv1.VersionTLS13 {
+		t.Fatalf("expected min_tls_version %q, got %#v", configv1.VersionTLS13, spireConfig["min_tls_version"])
+	}
+	if _, ok := spireConfig["cipher_suites"]; !ok {
+		t.Fatalf("expected cipher_suites, got %#v", spireConfig)
 	}
 }
 
-func TestGetOperandTLSConfig_emptyProfileReturnsNil(t *testing.T) {
-	if config := getOperandTLSConfig(configv1.TLSProfileSpec{}, logr.Discard()); config != nil {
-		t.Fatalf("expected nil operand config for empty profile, got %#v", config)
+func TestGetTLSConfigForSCM(t *testing.T) {
+	spireCtrlManagerConfig := GetTLSConfigForSCM(&configv1.TLSProfileSpec{
+		MinTLSVersion: configv1.VersionTLS12,
+		Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+	})
+	if spireCtrlManagerConfig["minTLSVersion"] != configv1.VersionTLS12 {
+		t.Fatalf("expected minTLSVersion, got %#v", spireCtrlManagerConfig)
+	}
+	if _, ok := spireCtrlManagerConfig["cipherSuites"]; !ok {
+		t.Fatalf("expected cipherSuites, got %#v", spireCtrlManagerConfig)
 	}
 }

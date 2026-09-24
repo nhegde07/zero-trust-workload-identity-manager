@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
@@ -21,8 +22,8 @@ import (
 )
 
 // reconcileConfigMap reconciles the OIDC Discovery Provider ConfigMap
-func (r *SpireOidcDiscoveryProviderReconciler) reconcileConfigMap(ctx context.Context, oidc *v1alpha1.SpireOIDCDiscoveryProvider, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsConfig *pkgtls.OperandTLSConfig, createOnlyMode bool) (string, error) {
-	cm, err := generateOIDCConfigMapFromCR(oidc, ztwim, tlsConfig)
+func (r *SpireOidcDiscoveryProviderReconciler) reconcileConfigMap(ctx context.Context, oidc *v1alpha1.SpireOIDCDiscoveryProvider, statusMgr *status.Manager, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsProfileSpec *configv1.TLSProfileSpec, createOnlyMode bool) (string, error) {
+	cm, err := generateOIDCConfigMapFromCR(oidc, ztwim, tlsProfileSpec)
 	if err != nil {
 		r.log.Error(err, "failed to generate OIDC ConfigMap from CR")
 		statusMgr.AddCondition(ConfigMapAvailable, "SpireOIDCConfigMapCreationFailed",
@@ -86,7 +87,7 @@ func (r *SpireOidcDiscoveryProviderReconciler) reconcileConfigMap(ctx context.Co
 }
 
 // generateOIDCConfigMapFromCR creates a ConfigMap for the spire oidc discovery provider from the CR spec
-func generateOIDCConfigMapFromCR(dp *v1alpha1.SpireOIDCDiscoveryProvider, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsConfig *pkgtls.OperandTLSConfig) (*corev1.ConfigMap, error) {
+func generateOIDCConfigMapFromCR(dp *v1alpha1.SpireOIDCDiscoveryProvider, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsProfileSpec *configv1.TLSProfileSpec) (*corev1.ConfigMap, error) {
 	if dp == nil {
 		return nil, errors.New("spire OIDC Discovery Provider Config is nil")
 	}
@@ -131,7 +132,7 @@ func generateOIDCConfigMapFromCR(dp *v1alpha1.SpireOIDCDiscoveryProvider, ztwim 
 		},
 	}
 
-	if tlsCfg := pkgtls.GetInjectableTLSConfigForOperand(tlsConfig); tlsCfg != nil {
+	if tlsCfg := pkgtls.GetTLSConfigForSpiffeSpire(tlsProfileSpec); tlsCfg != nil {
 		oidcConfig[utils.TLSConfigKey] = tlsCfg
 	}
 

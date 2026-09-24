@@ -15,7 +15,6 @@ import (
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/client/fakes"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/status"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
-	pkgtls "github.com/openshift/zero-trust-workload-identity-manager/pkg/tls"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -2037,27 +2036,26 @@ func tlsHashTestServerZTWIM() *v1alpha1.ZeroTrustWorkloadIdentityManager {
 	}
 }
 
-func partialOperandTLSConfig() *pkgtls.OperandTLSConfig {
-	return &pkgtls.OperandTLSConfig{
+func partialTLSProfileSpec() *configv1.TLSProfileSpec {
+	return &configv1.TLSProfileSpec{
 		MinTLSVersion: configv1.VersionTLS12,
 	}
 }
 
-func fullOperandTLSConfig() *pkgtls.OperandTLSConfig {
-	return &pkgtls.OperandTLSConfig{
+func fullTLSProfileSpec() *configv1.TLSProfileSpec {
+	return &configv1.TLSProfileSpec{
 		MinTLSVersion: configv1.VersionTLS13,
-		CipherSuites: []string{
+		Ciphers: []string{
 			"TLS_AES_128_GCM_SHA256",
-			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"ECDHE-RSA-AES128-GCM-SHA256",
 		},
-		CurvePreferences: []string{"X25519", "secp256r1"},
 	}
 }
 
-func serverConfigHash(t *testing.T, config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsConfig *pkgtls.OperandTLSConfig) string {
+func serverConfigHash(t *testing.T, config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsProfileSpec *configv1.TLSProfileSpec) string {
 	t.Helper()
 
-	confJSON, err := marshalToJSON(generateServerConfMap(config, ztwim, tlsConfig))
+	confJSON, err := marshalToJSON(generateServerConfMap(config, ztwim, tlsProfileSpec))
 	if err != nil {
 		t.Fatalf("marshal server config: %v", err)
 	}
@@ -2065,10 +2063,10 @@ func serverConfigHash(t *testing.T, config *v1alpha1.SpireServerSpec, ztwim *v1a
 	return generateConfigHash(confJSON)
 }
 
-func controllerManagerConfigHash(t *testing.T, config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsConfig *pkgtls.OperandTLSConfig) string {
+func controllerManagerConfigHash(t *testing.T, config *v1alpha1.SpireServerSpec, ztwim *v1alpha1.ZeroTrustWorkloadIdentityManager, tlsProfileSpec *configv1.TLSProfileSpec) string {
 	t.Helper()
 
-	yamlStr, err := generateSpireControllerManagerConfigYaml(config, ztwim, tlsConfig)
+	yamlStr, err := generateSpireControllerManagerConfigYaml(config, ztwim, tlsProfileSpec)
 	if err != nil {
 		t.Fatalf("generate controller manager config yaml: %v", err)
 	}
@@ -2082,19 +2080,19 @@ func TestSpireServerConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 
 	// Test that hash is consistent as long as the operand TLS config is the same
 	tests := []struct {
-		name      string
-		tlsConfig *pkgtls.OperandTLSConfig
+		name           string
+		tlsProfileSpec *configv1.TLSProfileSpec
 	}{
-		{name: "nil operand profile", tlsConfig: nil},
-		{name: "partial operand profile", tlsConfig: partialOperandTLSConfig()},
-		{name: "full operand profile", tlsConfig: fullOperandTLSConfig()},
+		{name: "nil operand profile", tlsProfileSpec: nil},
+		{name: "partial operand profile", tlsProfileSpec: partialTLSProfileSpec()},
+		{name: "full operand profile", tlsProfileSpec: fullTLSProfileSpec()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hash1 := serverConfigHash(t, config, ztwim, tt.tlsConfig)
-			hash2 := serverConfigHash(t, config, ztwim, tt.tlsConfig)
-			hash3 := serverConfigHash(t, config, ztwim, tt.tlsConfig)
+			hash1 := serverConfigHash(t, config, ztwim, tt.tlsProfileSpec)
+			hash2 := serverConfigHash(t, config, ztwim, tt.tlsProfileSpec)
+			hash3 := serverConfigHash(t, config, ztwim, tt.tlsProfileSpec)
 
 			if hash1 != hash2 || hash2 != hash3 {
 				t.Fatalf("expected identical server config hash, got %q, %q, %q", hash1, hash2, hash3)
@@ -2104,8 +2102,8 @@ func TestSpireServerConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 
 	// Test that hash is different if the operand TLS config is different
 	nilHash := serverConfigHash(t, config, ztwim, nil)
-	partialHash := serverConfigHash(t, config, ztwim, partialOperandTLSConfig())
-	fullHash := serverConfigHash(t, config, ztwim, fullOperandTLSConfig())
+	partialHash := serverConfigHash(t, config, ztwim, partialTLSProfileSpec())
+	fullHash := serverConfigHash(t, config, ztwim, fullTLSProfileSpec())
 
 	if nilHash == partialHash || partialHash == fullHash || nilHash == fullHash {
 		t.Fatalf("expected distinct hashes for nil/partial/full profiles, got nil=%q partial=%q full=%q", nilHash, partialHash, fullHash)
@@ -2118,19 +2116,19 @@ func TestSpireControllerManagerConfigHashConsistentWithOperandTLSConfig(t *testi
 
 	// Test that hash is consistent as long as the operand TLS config is the same
 	tests := []struct {
-		name      string
-		tlsConfig *pkgtls.OperandTLSConfig
+		name           string
+		tlsProfileSpec *configv1.TLSProfileSpec
 	}{
-		{name: "nil operand profile", tlsConfig: nil},
-		{name: "partial operand profile", tlsConfig: partialOperandTLSConfig()},
-		{name: "full operand profile", tlsConfig: fullOperandTLSConfig()},
+		{name: "nil operand profile", tlsProfileSpec: nil},
+		{name: "partial operand profile", tlsProfileSpec: partialTLSProfileSpec()},
+		{name: "full operand profile", tlsProfileSpec: fullTLSProfileSpec()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hash1 := controllerManagerConfigHash(t, config, ztwim, tt.tlsConfig)
-			hash2 := controllerManagerConfigHash(t, config, ztwim, tt.tlsConfig)
-			hash3 := controllerManagerConfigHash(t, config, ztwim, tt.tlsConfig)
+			hash1 := controllerManagerConfigHash(t, config, ztwim, tt.tlsProfileSpec)
+			hash2 := controllerManagerConfigHash(t, config, ztwim, tt.tlsProfileSpec)
+			hash3 := controllerManagerConfigHash(t, config, ztwim, tt.tlsProfileSpec)
 
 			if hash1 != hash2 || hash2 != hash3 {
 				t.Fatalf("expected identical controller manager config hash, got %q, %q, %q", hash1, hash2, hash3)
@@ -2140,8 +2138,8 @@ func TestSpireControllerManagerConfigHashConsistentWithOperandTLSConfig(t *testi
 
 	// Test that hash is different if the operand TLS config is different
 	nilHash := controllerManagerConfigHash(t, config, ztwim, nil)
-	partialHash := controllerManagerConfigHash(t, config, ztwim, partialOperandTLSConfig())
-	fullHash := controllerManagerConfigHash(t, config, ztwim, fullOperandTLSConfig())
+	partialHash := controllerManagerConfigHash(t, config, ztwim, partialTLSProfileSpec())
+	fullHash := controllerManagerConfigHash(t, config, ztwim, fullTLSProfileSpec())
 
 	if nilHash == partialHash || partialHash == fullHash || nilHash == fullHash {
 		t.Fatalf("expected distinct hashes for nil/partial/full profiles, got nil=%q partial=%q full=%q", nilHash, partialHash, fullHash)

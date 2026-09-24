@@ -8,7 +8,6 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/zero-trust-workload-identity-manager/api/v1alpha1"
 	"github.com/openshift/zero-trust-workload-identity-manager/pkg/controller/utils"
-	pkgtls "github.com/openshift/zero-trust-workload-identity-manager/pkg/tls"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1039,20 +1038,19 @@ func tlsHashTestZTWIM() *v1alpha1.ZeroTrustWorkloadIdentityManager {
 	}
 }
 
-func partialOperandTLSConfig() *pkgtls.OperandTLSConfig {
-	return &pkgtls.OperandTLSConfig{
+func partialTLSProfileSpec() *configv1.TLSProfileSpec {
+	return &configv1.TLSProfileSpec{
 		MinTLSVersion: configv1.VersionTLS12,
 	}
 }
 
-func fullOperandTLSConfig() *pkgtls.OperandTLSConfig {
-	return &pkgtls.OperandTLSConfig{
+func fullTLSProfileSpec() *configv1.TLSProfileSpec {
+	return &configv1.TLSProfileSpec{
 		MinTLSVersion: configv1.VersionTLS13,
-		CipherSuites: []string{
+		Ciphers: []string{
 			"TLS_AES_128_GCM_SHA256",
-			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"ECDHE-RSA-AES128-GCM-SHA256",
 		},
-		CurvePreferences: []string{"X25519", "secp256r1"},
 	}
 }
 
@@ -1061,22 +1059,22 @@ func TestSpireAgentConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 	ztwim := tlsHashTestZTWIM()
 
 	tests := []struct {
-		name      string
-		tlsConfig *pkgtls.OperandTLSConfig
+		name           string
+		tlsProfileSpec *configv1.TLSProfileSpec
 	}{
-		{name: "nil operand profile", tlsConfig: nil},
-		{name: "partial operand profile", tlsConfig: partialOperandTLSConfig()},
-		{name: "full operand profile", tlsConfig: fullOperandTLSConfig()},
+		{name: "nil operand profile", tlsProfileSpec: nil},
+		{name: "partial operand profile", tlsProfileSpec: partialTLSProfileSpec()},
+		{name: "full operand profile", tlsProfileSpec: fullTLSProfileSpec()},
 	}
 
 	// Test  that hash is consistent as long as the operand TLS config is the same
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, hash1, err := generateSpireAgentConfigMap(agent, ztwim, tt.tlsConfig)
+			_, hash1, err := generateSpireAgentConfigMap(agent, ztwim, tt.tlsProfileSpec)
 			require.NoError(t, err)
-			_, hash2, err := generateSpireAgentConfigMap(agent, ztwim, tt.tlsConfig)
+			_, hash2, err := generateSpireAgentConfigMap(agent, ztwim, tt.tlsProfileSpec)
 			require.NoError(t, err)
-			_, hash3, err := generateSpireAgentConfigMap(agent, ztwim, tt.tlsConfig)
+			_, hash3, err := generateSpireAgentConfigMap(agent, ztwim, tt.tlsProfileSpec)
 			require.NoError(t, err)
 
 			assert.Equal(t, hash1, hash2)
@@ -1087,9 +1085,9 @@ func TestSpireAgentConfigHashConsistentWithOperandTLSConfig(t *testing.T) {
 	// Test that hash is different if the operand TLS config is different
 	_, nilHash, err := generateSpireAgentConfigMap(agent, ztwim, nil)
 	require.NoError(t, err)
-	_, partialHash, err := generateSpireAgentConfigMap(agent, ztwim, partialOperandTLSConfig())
+	_, partialHash, err := generateSpireAgentConfigMap(agent, ztwim, partialTLSProfileSpec())
 	require.NoError(t, err)
-	_, fullHash, err := generateSpireAgentConfigMap(agent, ztwim, fullOperandTLSConfig())
+	_, fullHash, err := generateSpireAgentConfigMap(agent, ztwim, fullTLSProfileSpec())
 	require.NoError(t, err)
 
 	assert.NotEqual(t, nilHash, partialHash)
