@@ -143,23 +143,6 @@ func main() {
 	config.QPS = 50    // Default is usually 5, increase as needed
 	config.Burst = 100 // Default is usually 10, increase as needed
 
-	// Add OpenShift SCC scheme
-	if err := securityv1.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add securityv1 scheme")
-	}
-	if err := ctrlmgr.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add spiffev1alpha1 scheme")
-	}
-
-	if err := routev1.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add routev1 scheme")
-	}
-
-	// Add OperatorCondition scheme for OLM integration
-	if err := operatorv1.AddToScheme(scheme); err != nil {
-		exitOnError(err, "unable to add operatorv1 scheme")
-	}
-
 	// Add configv1 scheme for tls profile watcher
 	if err := configv1.AddToScheme(scheme); err != nil {
 		exitOnError(err, "unable to add configv1 scheme")
@@ -177,9 +160,26 @@ func main() {
 		exitOnError(err, "unable to resolve TLS configuration")
 	}
 
-	if tlsConfig.Resolved.OperatorTLSConfig != nil {
-		metricsTLSOpts = append(metricsTLSOpts, tlsConfig.Resolved.OperatorTLSConfig)
-		webhookTLSOpts = append(webhookTLSOpts, tlsConfig.Resolved.OperatorTLSConfig)
+	if tlsConfig.OperatorGoTLSConfig != nil {
+		metricsTLSOpts = append(metricsTLSOpts, tlsConfig.OperatorGoTLSConfig)
+		webhookTLSOpts = append(webhookTLSOpts, tlsConfig.OperatorGoTLSConfig)
+	}
+
+	// Add OpenShift SCC scheme
+	if err := securityv1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add securityv1 scheme")
+	}
+	if err := ctrlmgr.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add spiffev1alpha1 scheme")
+	}
+
+	if err := routev1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add routev1 scheme")
+	}
+
+	// Add OperatorCondition scheme for OLM integration
+	if err := operatorv1.AddToScheme(scheme); err != nil {
+		exitOnError(err, "unable to add operatorv1 scheme")
 	}
 
 	webhookServer := webhook.NewServer(webhook.Options{
@@ -284,13 +284,13 @@ func main() {
 		exitOnError(err, "unable to setup ztwim controller manager")
 	}
 
-	spireServerControllerManager, err := spireServerController.New(mgr, tlsConfig.Resolved.OperandTLSConfig)
+	spireServerControllerManager, err := spireServerController.New(mgr, &tlsConfig.InitialTLSProfileSpec)
 	exitOnError(err, "unable to set up spire server controller manager")
 	if err = spireServerControllerManager.SetupWithManager(mgr); err != nil {
 		exitOnError(err, "unable to setup spire server controller manager")
 	}
 
-	spireAgentControllerManager, err := spireAgentController.New(mgr, tlsConfig.Resolved.OperandTLSConfig)
+	spireAgentControllerManager, err := spireAgentController.New(mgr, &tlsConfig.InitialTLSProfileSpec)
 	if err != nil {
 		exitOnError(err, "unable to set up spire agent controller manager")
 	}
@@ -306,7 +306,7 @@ func main() {
 		exitOnError(err, "unable to setup spiffe csi driver controller manager")
 	}
 
-	spireOIDCDiscoveryProviderControllerManager, err := spireOIDCDiscoveryProviderController.New(mgr, tlsConfig.Resolved.OperandTLSConfig)
+	spireOIDCDiscoveryProviderControllerManager, err := spireOIDCDiscoveryProviderController.New(mgr, &tlsConfig.InitialTLSProfileSpec)
 	if err != nil {
 		exitOnError(err, "unable to set up spire OIDC discovery provider controller manager")
 	}
