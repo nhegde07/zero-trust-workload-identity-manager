@@ -732,15 +732,15 @@ spec:
                 - name: OPERATOR_VERSION
                   value: 1.1.0
                 - name: RELATED_IMAGE_SPIRE_SERVER
-                  value: quay.io/rh-ee-nhegde/spire-server:v-pqc
+                  value: quay.io/rh-ee-nhegde/spire-server:v-pqc1
                 - name: RELATED_IMAGE_SPIRE_AGENT
-                  value: quay.io/rh-ee-nhegde/spire-agent:v-pqc
+                  value: quay.io/rh-ee-nhegde/spire-agent:v-pqc1
                 - name: RELATED_IMAGE_SPIFFE_CSI_DRIVER
-                  value: quay.io/rh-ee-nhegde/spiffe-csi-driver:v-pqc
+                  value: quay.io/rh-ee-nhegde/spiffe-csi-driver:v-pqc1
                 - name: RELATED_IMAGE_SPIRE_OIDC_DISCOVERY_PROVIDER
-                  value: quay.io/rh-ee-nhegde/spire-oidc-discovery-provider:v-pqc
+                  value: quay.io/rh-ee-nhegde/spire-oidc-discovery-provider:v-pqc1
                 - name: RELATED_IMAGE_SPIRE_CONTROLLER_MANAGER
-                  value: quay.io/rh-ee-nhegde/spiffe-spire-controller-manager:v-pqc
+                  value: quay.io/rh-ee-nhegde/spiffe-spire-controller-manager:v-pqc1
                 - name: RELATED_IMAGE_NODE_DRIVER_REGISTRAR
                   value: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.15.0
                 - name: RELATED_IMAGE_SPIFFE_CSI_INIT_CONTAINER
@@ -823,15 +823,15 @@ spec:
   provider:
     name: Red Hat
   relatedImages:
-  - image: quay.io/rh-ee-nhegde/spire-server:v-pqc
+  - image: quay.io/rh-ee-nhegde/spire-server:v-pqc1
     name: spire-server
-  - image: quay.io/rh-ee-nhegde/spire-agent:v-pqc
+  - image: quay.io/rh-ee-nhegde/spire-agent:v-pqc1
     name: spire-agent
-  - image: quay.io/rh-ee-nhegde/spiffe-csi-driver:v-pqc
+  - image: quay.io/rh-ee-nhegde/spiffe-csi-driver:v-pqc1
     name: spiffe-csi-driver
-  - image: quay.io/rh-ee-nhegde/spire-oidc-discovery-provider:v-pqc
+  - image: quay.io/rh-ee-nhegde/spire-oidc-discovery-provider:v-pqc1
     name: spire-oidc-discovery-provider
-  - image: quay.io/rh-ee-nhegde/spiffe-spire-controller-manager:v-pqc
+  - image: quay.io/rh-ee-nhegde/spiffe-spire-controller-manager:v-pqc1
     name: spire-controller-manager
   - image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.15.0
     name: node-driver-registrar
