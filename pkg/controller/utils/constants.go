@@ -101,5 +101,6 @@ const (
 	SpireServerExternalCertRoleBindingName = "spire-server-external-cert-reader"
 
 	//Security Context Constraints
-	PrivilegedSCCName = "privileged"
+	PrivilegedSCCName   = "privileged"
+	RestrictedV2SCCName = "restricted-v2"
 )
